@@ -1,10 +1,8 @@
 #app/domain/entities/user.py
 
 from dataclasses import dataclass
-from uuid import UUID
 from app.domain.entities.base_entity import BaseEntity
 from app.domain.enums.platform_role_enum import PlatformRoleEnum
-
 
 @dataclass(kw_only=True)
 class User(BaseEntity):
