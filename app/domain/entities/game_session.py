@@ -13,7 +13,7 @@ class GameSession(BaseEntity):
     Domain Entity representing game session.
 
     Attributes:
-        game_id (UUID): Уникальный идентификатор сущности.
+        game_id (UUID): Уникальный идентификатор игры.
         session_number (int): Номер игровой сессии.
         discord_event_id (int): ID привязанного Scheduled Event. Discord Only.
         title (str): Название игровой сессии.
@@ -30,5 +30,5 @@ class GameSession(BaseEntity):
     title: str = ""
     description: str = ""
     image_url: str = ""
-    started_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    started_at: datetime | None = None
     ended_at: datetime | None = None

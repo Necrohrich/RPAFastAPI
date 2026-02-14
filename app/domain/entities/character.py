@@ -10,7 +10,7 @@ class Character(BaseEntity):
     Domain Entity representing character.
 
     Attributes:
-        name (str): уникальное имя персонажа.
+        name (str): имя персонажа.
         user_id (UUID): Указывает идентификатор привязанного User.
         game_id (UUID): Указывает идентификатор привязанного Game.
         avatar (str): Ссылка на аватар персонажа.
