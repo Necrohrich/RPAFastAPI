@@ -2,7 +2,7 @@
 import uuid
 from typing import Optional, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import String, UUID, ForeignKey, Integer, CheckConstraint, BigInteger, DateTime, Index, UniqueConstraint
+from sqlalchemy import String, UUID, ForeignKey, Integer, CheckConstraint, BigInteger, DateTime, Index, text
 from sqlalchemy import Enum as SQLEnum
 
 from app.domain.enums.game_session_status_enum import GameSessionStatusEnum
@@ -46,18 +46,21 @@ class GameSessionModel(BaseModel):
     game: Mapped["GameModel"] = relationship(back_populates='game_sessions') # type: ignore[import]
 
     __table_args__ = (
-        UniqueConstraint(
+        # Частичный уникальный индекс для активных сессий
+        Index(
+            'uq_game_active_session_number',
             'game_id',
             'session_number',
-            postgresql_where="status NOT IN ('CANCELED', 'IGNORED') OR status IS NULL",
-            name='uq_game_active_session_number'
+            unique=True,
+            postgresql_where=text("status NOT IN ('CANCELED', 'INVALID') OR status IS NULL")
         ),
         CheckConstraint('session_number > 0', name='positive_session_number'),
         CheckConstraint('ended_at > started_at', name='valid_session_dates'),
+        # Индекс по активности
         Index(
             'ix_game_sessions_active',
             'game_id',
             'status',
-            postgresql_where="status NOT IN ('CANCELED', 'IGNORED') OR status IS NULL"
+            postgresql_where=text("status NOT IN ('CANCELED', 'INVALID') OR status IS NULL")
         ),
     )

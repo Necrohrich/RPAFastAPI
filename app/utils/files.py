@@ -4,7 +4,7 @@ import os
 
 def get_base_dir():
     """Возвращает абсолютный путь до корня app/"""
-    return os.path.abspath(os.path.join(os.path.dirname(__file__), '.'))
+    return os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 
 def load_json(relative_path: str):
     """Загружает JSON относительно корня app/"""

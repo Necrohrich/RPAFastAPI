@@ -1,3 +1,9 @@
+#app/main.py
+import asyncio
 from app.infrastructure.db.database import init_db
 
-init_db()
+async def main():
+    await init_db()
+
+if __name__ == "__main__":
+    asyncio.run(main())
