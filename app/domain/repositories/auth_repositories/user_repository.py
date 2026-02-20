@@ -7,6 +7,20 @@ from app.domain.entities.user import User
 from app.domain.enums.platform_role_enum import PlatformRoleEnum
 
 class IUserRepository(ABC):
+    """
+    Интерфейс репозитория для работы с пользователями платформы.
+
+        Управляет CRUD операциями и атрибутами пользователя, включая роль, пароль и токен версии.
+
+        Методы:
+            * create — создаёт нового пользователя с логином, email и хэшом пароля
+            * get_by_email — возвращает пользователя по email
+            * get_by_id — возвращает пользователя по UUID
+            * attach_secondary_email — добавляет вторичный email к пользователю
+            * update_password — обновляет хэш пароля
+            * update_role — изменяет роль пользователя (PlatformRoleEnum)
+            * update_token_version — обновляет версию токенов пользователя (для ротации JWT)
+    """
 
     @abstractmethod
     async def create(self, login:str, email: str, password_hash: str) -> User:
