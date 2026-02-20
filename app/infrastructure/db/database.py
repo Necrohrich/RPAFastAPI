@@ -25,12 +25,8 @@ async def init_db():
 async def get_session():
     """Создает сессии для работы с БД"""
     async with AsyncSessionLocal() as session:
-        try:
+        async with session.begin():
             yield session
-            await session.commit()
-        except Exception as e:
-            await session.rollback()
-            raise Exception(f"Ошибка: {e}")
 
 async def close_engine():
     await engine.dispose()
