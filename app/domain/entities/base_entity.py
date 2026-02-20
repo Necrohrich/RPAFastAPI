@@ -1,7 +1,8 @@
 #app/domain/entities/base_entity.py
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime
+from typing import Optional
 from uuid import UUID, uuid4
 
 @dataclass(kw_only=True) #kw_only решает конфликт полей при наследовании
@@ -17,6 +18,6 @@ class BaseEntity:
     """
 
     id: UUID = field(default_factory=uuid4)
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime | None = None
-    deleted_at: datetime | None = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    deleted_at: Optional[datetime] = None

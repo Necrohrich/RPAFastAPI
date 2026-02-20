@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from typing import Optional
 from uuid import UUID
 
 from app.domain.entities.base_entity import BaseEntity
@@ -30,5 +31,5 @@ class GameSession(BaseEntity):
     title: str = ""
     description: str = ""
     image_url: str = ""
-    started_at: datetime | None = None
-    ended_at: datetime | None = None
+    started_at: Optional[datetime] = None
+    ended_at: Optional[datetime] = None
