@@ -1,4 +1,4 @@
 # Правильно (из корня проекта)
-alembic -c app/alembic.ini revision --autogenerate -m "добавить таблицу"
-alembic -c app/alembic.ini upgrade head
-alembic -c app/alembic.ini downgrade -1
+alembic -c alembic.ini revision --autogenerate -m "добавить таблицу"
+alembic -c alembic.ini upgrade head
+alembic -c alembic.ini downgrade -1
