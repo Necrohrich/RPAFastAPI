@@ -27,7 +27,7 @@ class GameSessionModel(BaseModel):
 
     game_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey('games.id'),
+        ForeignKey('games.id', ondelete="CASCADE"),
         nullable=False,
         index=True
     )
