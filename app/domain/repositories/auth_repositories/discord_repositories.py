@@ -1,6 +1,9 @@
 #app/domain/repositories/auth_repositories/discord_repositories.py
 from abc import ABC, abstractmethod
+from typing import Optional
 from uuid import UUID
+
+from app.domain.entities.user import User
 
 
 class IDiscordRepository(ABC):
@@ -24,5 +27,5 @@ class IDiscordRepository(ABC):
         pass
 
     @abstractmethod
-    async def get_user_by_discord_id(self, discord_id: int):
+    async def get_user_by_discord_id(self, discord_id: int) -> Optional[User]:
         pass

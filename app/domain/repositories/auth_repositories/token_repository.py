@@ -1,6 +1,5 @@
 # app/domain/repositories/auth_repositories/token_repository.py
 from abc import ABC
-from datetime import datetime
 from uuid import UUID
 from typing import Optional
 from app.domain.entities.refresh_token import RefreshToken
@@ -16,26 +15,15 @@ class ITokenRepository(ABC):
         - Удаление просроченных токенов
     """
 
-    async def create(
-        self,
-        user_id: UUID,
-        token_hash: str,
-        expires_at: datetime,
-        device_info: str = "",
-        replaced_by_token_id: Optional[UUID] = None,
-    ) -> RefreshToken:
+    async def create(self, token: RefreshToken) -> None:
         """
         Создаёт и сохраняет новый refresh-токен.
 
         Args:
-            user_id: ID пользователя
-            token_hash: Хэш токена
-            expires_at: Время истечения токена
-            device_info: Информация об устройстве
-            replaced_by_token_id: ID токена, который заменяет этот токен (ротация)
+            token: переданный объект RefreshToken
 
         Returns:
-            RefreshToken: Созданный объект токена
+            bool: Успех создания токена
         """
         pass
 

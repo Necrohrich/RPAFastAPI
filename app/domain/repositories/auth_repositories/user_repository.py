@@ -23,7 +23,7 @@ class IUserRepository(ABC):
     """
 
     @abstractmethod
-    async def create(self, login:str, email: str, password_hash: str) -> User:
+    async def create(self, user: User) -> None:
         pass
 
     @abstractmethod

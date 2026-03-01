@@ -17,14 +17,16 @@ class User(BaseEntity):
         primary_discord_id (int): Основной Discord User ID.
         secondary_discord_id (int): Дополнительный Discord User ID.
         platform_role (PlatformRoleEnum): Особые права пользователя.
+        token_version (int): Версия токена пользователя.
     """
     login: str
     primary_email: str
     password_hash: str
-    secondary_email: str = ""
+    secondary_email: str | None = None
     primary_discord_id: int | None = None
     secondary_discord_id: int | None = None
     platform_role: PlatformRoleEnum | None = None
+    token_version: int
 
 
 

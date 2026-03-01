@@ -10,7 +10,7 @@ DATABASE_URL = config["DATABASE_URL"]
 #Создает асинхронный engine — пул соединений с БД.
 engine = create_async_engine(DATABASE_URL, echo=True, pool_pre_ping=True)
 #Фабрика асинхронных сессий для работы с БД.
-AsyncSessionLocal = async_sessionmaker(engine, class_=AsyncSession)
+AsyncSessionLocal = async_sessionmaker(engine, class_=AsyncSession,expire_on_commit=False)
 
 async def init_db():
     """Определяет действия с таблицей при инициализации сервера"""
