@@ -20,6 +20,7 @@ class UserRepository(IUserRepository):
     async def create(self, user: User) -> None:
         model = Mapper.entity_to_model(user, UserModel)
         self.session.add(model)
+        await self.session.flush()
 
     async def get_by_email(self, email: str) -> Optional[User]:
         stmt = select(UserModel).where(

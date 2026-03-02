@@ -16,17 +16,37 @@ async def init_db():
     """Определяет действия с таблицей при инициализации сервера"""
     async with engine.begin() as conn:
         # удаление всех таблиц
-        #await conn.run_sync(BaseModel.metadata.drop_all)
+        # await conn.run_sync(BaseModel.metadata.drop_all)
         # создание всех таблиц
-        await conn.run_sync(BaseModel.metadata.create_all)
+        # await conn.run_sync(BaseModel.metadata.create_all)
         print(BaseModel.metadata.tables.keys())
 
-@asynccontextmanager
-async def get_session():
-    """Создает сессии для работы с БД"""
-    async with AsyncSessionLocal() as session:
-        async with session.begin():
-            yield session
+# async def get_session():
+#     """Создает сессии для работы с БД"""
+#     async with AsyncSessionLocal() as session:
+#         async with session.begin():
+#             yield session
+
+class UnitOfWork:
+    def __init__(self):
+        self.session = None
+
+    async def __aenter__(self):
+        self.session = AsyncSessionLocal()
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        try:
+            if exc:
+                await self.session.rollback()
+            else:
+                await self.session.commit()
+        finally:
+            await self.session.close()
+
+async def get_uow():
+    async with UnitOfWork() as uow:
+        yield uow
 
 async def close_engine():
     await engine.dispose()

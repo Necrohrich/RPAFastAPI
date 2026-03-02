@@ -1,3 +1,4 @@
+#app/dto/auth_dtos.py
 from uuid import UUID
 
 from pydantic import BaseModel, Field, EmailStr
@@ -31,3 +32,6 @@ class UserDTO(BaseModel):
     primary_discord_id: int | None = None
     secondary_discord_id: int | None = None
     platform_role: PlatformRoleEnum | None = None
+
+class ChangePasswordDTO(BaseModel):
+    new_password: str

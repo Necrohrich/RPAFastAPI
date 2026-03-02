@@ -11,3 +11,7 @@ class NotFoundError(ApplicationError):
 class ValidationError(ApplicationError):
     """Ошибка валидации"""
     pass
+
+class PermissionDenied(Exception):
+    """Ошибка права доступа."""
+    pass
