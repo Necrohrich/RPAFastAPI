@@ -9,7 +9,6 @@ from app.infrastructure.repositories.auth_repositories.token_repository import T
 from app.infrastructure.repositories.auth_repositories.user_repository import UserRepository
 from app.services.auth_service import AuthService
 from app.dto.auth_dtos import UserDTO
-from app.exceptions.auth_exceptions import InvalidToken, TokenExpired
 from app.services.user_service import UserService
 
 security = HTTPBearer()

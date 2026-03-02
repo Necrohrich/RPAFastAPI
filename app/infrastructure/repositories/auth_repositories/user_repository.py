@@ -24,8 +24,7 @@ class UserRepository(IUserRepository):
 
     async def get_by_email(self, email: str) -> Optional[User]:
         stmt = select(UserModel).where(
-            (UserModel.primary_email == email) |
-            (UserModel.secondary_email == email)
+            UserModel.primary_email == email
         )
         result = await self.session.execute(stmt)
         model = result.scalar_one_or_none()

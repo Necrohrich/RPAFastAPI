@@ -2,7 +2,7 @@
 from typing import Optional
 
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import String, BigInteger, CheckConstraint, Integer
+from sqlalchemy import String, BigInteger, CheckConstraint, Integer, Index
 from sqlalchemy import Enum as SQLEnum
 
 from app.domain.enums.platform_role_enum import PlatformRoleEnum
@@ -39,3 +39,18 @@ class UserModel(BaseModel):
     # Связи Many-to-One
     games: Mapped[list["GameModel"]] = relationship(back_populates='author') # type: ignore[import]
     characters: Mapped[list["CharacterModel"]] = relationship(back_populates='author') # type: ignore[import]
+
+    __table_args__ = (
+        Index(
+            "uq_users_email_global",
+            "primary_email",
+            "secondary_email",
+            unique=True,
+        ),
+        Index(
+            "uq_users_discord_id_global",
+            "primary_discord_id",
+            "secondary_discord_id",
+            unique=True,
+        )
+    )

@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, status
 from app.services.user_service import UserService
 from app.api.dependencies import get_user_service, get_current_user
-from app.dto.auth_dtos import UserDTO, ChangePasswordDTO
+from app.dto.auth_dtos import UserDTO, ChangePasswordDTO, DiscordDTO, SecondaryEmailDTO
 
 router = APIRouter(
     prefix="/users",
@@ -12,23 +12,67 @@ router = APIRouter(
 
 @router.get(
     "/me",
-    response_model=UserDTO,
-    dependencies=[Depends(get_current_user)]
+    response_model=UserDTO
 )
 async def get_me(
     current_user: UserDTO = Depends(get_current_user),
 ):
     return current_user
 
-
-@router.put(
+@router.patch(
     "/me/password",
     status_code=status.HTTP_204_NO_CONTENT,
-    dependencies=[Depends(get_current_user)]
 )
 async def change_my_password(
-        dto: ChangePasswordDTO,
-        current_user: UserDTO = Depends(get_current_user),
-        service: UserService = Depends(get_user_service),
+    dto: ChangePasswordDTO,
+    current_user: UserDTO = Depends(get_current_user),
+    service: UserService = Depends(get_user_service),
 ):
-    await service.change_password(current_user.id, dto.new_password)
+    await service.change_password(
+        user_id=current_user.id,
+        new_password=dto.new_password,
+    )
+
+@router.patch(
+    "/me/secondary-email",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def attach_secondary_email(
+    dto: SecondaryEmailDTO,
+    current_user: UserDTO = Depends(get_current_user),
+    service: UserService = Depends(get_user_service),
+):
+    await service.attach_secondary_email(
+        user_id=current_user.id,
+        email=dto.email,
+    )
+
+
+@router.patch(
+    "/me/primary-discord-id",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def attach_primary_discord_id(
+    dto: DiscordDTO,
+    current_user: UserDTO = Depends(get_current_user),
+    service: UserService = Depends(get_user_service),
+):
+    await service.attach_primary_discord_id(
+        user_id=current_user.id,
+        discord_id=dto.discord_id,
+    )
+
+
+@router.patch(
+    "/me/secondary-discord-id",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def attach_secondary_discord_id(
+    dto: DiscordDTO,
+    current_user: UserDTO = Depends(get_current_user),
+    service: UserService = Depends(get_user_service),
+):
+    await service.attach_secondary_discord_id(
+        user_id=current_user.id,
+        discord_id=dto.discord_id,
+    )

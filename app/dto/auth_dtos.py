@@ -35,3 +35,9 @@ class UserDTO(BaseModel):
 
 class ChangePasswordDTO(BaseModel):
     new_password: str
+
+class SecondaryEmailDTO(BaseModel):
+    email: EmailStr
+
+class DiscordDTO(BaseModel):
+    discord_id: int
