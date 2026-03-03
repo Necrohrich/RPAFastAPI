@@ -5,7 +5,7 @@ import disnake
 from disnake.ext import commands
 
 from app.discord.error_handlers import setup_error_handlers
-from app.discord.loader import load_cogs
+from app.discord.loader import load_cogs, register_views
 
 logger = logging.getLogger(__name__)
 
@@ -20,9 +20,10 @@ class RPABot(commands.InteractionBot):
     async def setup_hook(self):
         await load_cogs(self)
         setup_error_handlers(self)
+        register_views(self)
 
     async def on_ready(self):
-        # защита от повторных вызовов при реконнекте
+        # защита от повторных вызовов при перезапуске
         if self._startup_notified:
             return
 

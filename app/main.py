@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from contextlib import asynccontextmanager
 
 from sqlalchemy.exc import IntegrityError
+from starlette.staticfiles import StaticFiles
 
 from app.api.routers import auth_router, user_router, admin_router
 from app.api.exception_handlers import (
@@ -35,6 +36,8 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+app.mount("/images", StaticFiles(directory="images"), name="images")
 
 @app.get("/")
 async def root():

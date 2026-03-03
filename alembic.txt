@@ -1,4 +1,0 @@
-# Правильно (из корня проекта)
-alembic -c alembic.ini revision --autogenerate -m "добавить таблицу"
-alembic -c alembic.ini upgrade head
-alembic -c alembic.ini downgrade -1

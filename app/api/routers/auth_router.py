@@ -5,10 +5,10 @@ from app.dto.auth_dtos import (
     RegisterRequestDTO,
     AuthResponseDTO,
     LoginRequestDTO,
-    RefreshRequestDTO,
+    RefreshRequestDTO, UserDTO,
 )
 from app.services.auth_service import AuthService
-from app.api.dependencies import get_auth_service
+from app.api.dependencies import get_auth_service, get_current_user
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
@@ -42,3 +42,10 @@ async def logout(
         service: AuthService = Depends(get_auth_service),
 ):
     await service.logout(dto.refresh_token)
+
+@router.post("/logout-all", status_code=status.HTTP_204_NO_CONTENT)
+async def logout_all(
+        current_user: UserDTO = Depends(get_current_user),
+        service: AuthService = Depends(get_auth_service),
+):
+    await service.logout_all(current_user.id)

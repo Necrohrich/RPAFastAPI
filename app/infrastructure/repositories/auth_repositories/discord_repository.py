@@ -27,7 +27,8 @@ class DiscordRepository(IDiscordRepository):
 
     async def get_user_by_discord_id(self, discord_id: int) -> Optional[User]:
         stmt = select(UserModel).where(
-            UserModel.primary_discord_id == discord_id
+            (UserModel.primary_discord_id == discord_id) |
+            (UserModel.secondary_discord_id == discord_id)
         )
         result = await self.session.execute(stmt)
         model = result.scalar_one_or_none()
