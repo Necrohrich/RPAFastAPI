@@ -1,8 +1,11 @@
 #app/discord/discord_main.py
 import asyncio
+
+from app.core.logging_config import setup_logging
 from app.discord.bot import RPABot
 from app.core.config import settings
 
+setup_logging()
 
 async def main():
     while True:

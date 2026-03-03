@@ -11,6 +11,7 @@ from app.api.exception_handlers import (
     token_expired_handler,
     not_found_handler, integrity_error_handler, validation_error_handler, permission_denied_handler,
 )
+from app.core.logging_config import setup_logging
 from app.exceptions.auth_exceptions import (
     InvalidCredentials,
     InvalidToken,
@@ -19,6 +20,7 @@ from app.exceptions.auth_exceptions import (
 from app.exceptions.common_exceptions import NotFoundError, ValidationError, PermissionDenied
 from app.infrastructure.db.database import init_db
 
+setup_logging()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
