@@ -1,18 +1,10 @@
 # app/core/config.py
-import os
 from pathlib import Path
-from pydantic_settings import BaseSettings
-from dotenv import load_dotenv
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from app.utils.files import get_base_dir
 
 # Абсолютный путь до .env
 BASE_DIR = Path(get_base_dir())
-ENV_PATH = BASE_DIR / ".env"
-
-# Загружаем переменные окружения из .env
-if not ENV_PATH.exists():
-    raise FileNotFoundError(f".env файл не найден: {ENV_PATH}")
-load_dotenv(dotenv_path=ENV_PATH)
 
 class Settings(BaseSettings):
     """
@@ -26,11 +18,19 @@ class Settings(BaseSettings):
         * JWT_ALGORITHM — алгоритм подписи JWT (по умолчанию HS256)
         * ACCESS_TOKEN_EXPIRE_MINUTES — время жизни access-токена в минутах
         * REFRESH_TOKEN_EXPIRE_DAYS — время жизни refresh-токена в днях
+        * DISCORD_TOKEN - ключ для обращения к дискорд-сервису
     """
-    JWT_SECRET: str = os.getenv("JWT_SECRET", "dummy_for_ide")
-    JWT_ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
-    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    JWT_SECRET: str
+    JWT_ALGORITHM: str
+    ACCESS_TOKEN_EXPIRE_MINUTES: int
+    REFRESH_TOKEN_EXPIRE_DAYS: int
+    DISCORD_TOKEN: str
 
-settings = Settings()  # подхватывает JWT_SECRET из окружения
+    model_config = SettingsConfigDict(
+        env_file=BASE_DIR / ".env",
+        env_file_encoding="utf-8",
+        case_sensitive=True
+    )
+
+settings = Settings()
 
