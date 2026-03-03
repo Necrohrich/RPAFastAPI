@@ -1,14 +1,10 @@
 #app/infrastructure/db/database.py
-from contextlib import asynccontextmanager
-
+from app.core.config import settings
 from app.infrastructure.models.base_model import BaseModel
-from app.utils.files import load_json
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 
-config = load_json("secrets.json")
-DATABASE_URL = config["DATABASE_URL"]
 #Создает асинхронный engine — пул соединений с БД.
-engine = create_async_engine(DATABASE_URL, echo=True, pool_pre_ping=True)
+engine = create_async_engine(settings.DATABASE_URL, echo=True, pool_pre_ping=True)
 #Фабрика асинхронных сессий для работы с БД.
 AsyncSessionLocal = async_sessionmaker(engine, class_=AsyncSession,expire_on_commit=False)
 

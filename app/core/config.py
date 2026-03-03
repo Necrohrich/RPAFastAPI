@@ -19,12 +19,14 @@ class Settings(BaseSettings):
         * ACCESS_TOKEN_EXPIRE_MINUTES — время жизни access-токена в минутах
         * REFRESH_TOKEN_EXPIRE_DAYS — время жизни refresh-токена в днях
         * DISCORD_TOKEN - ключ для обращения к дискорд-сервису
+        * DATABASE_URL - ссылка для подключения к БД
     """
     JWT_SECRET: str
     JWT_ALGORITHM: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int
     REFRESH_TOKEN_EXPIRE_DAYS: int
     DISCORD_TOKEN: str
+    DATABASE_URL: str
 
     model_config = SettingsConfigDict(
         env_file=BASE_DIR / ".env",
