@@ -17,12 +17,6 @@ async def init_db():
         # await conn.run_sync(BaseModel.metadata.create_all)
         print(BaseModel.metadata.tables.keys())
 
-# async def get_session():
-#     """Создает сессии для работы с БД"""
-#     async with AsyncSessionLocal() as session:
-#         async with session.begin():
-#             yield session
-
 class UnitOfWork:
     def __init__(self):
         self.session = None

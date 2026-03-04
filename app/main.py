@@ -1,4 +1,6 @@
 # app/main.py
+import os
+
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
 
@@ -20,6 +22,7 @@ from app.exceptions.auth_exceptions import (
 )
 from app.exceptions.common_exceptions import NotFoundError, ValidationError, PermissionDenied
 from app.infrastructure.db.database import init_db
+from app.utils.files import get_base_dir
 
 setup_logging()
 
@@ -37,7 +40,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-app.mount("/images", StaticFiles(directory="images"), name="images")
+app.mount("/images", StaticFiles(directory=os.path.join(get_base_dir(), "images")), name="images")
 
 @app.get("/")
 async def root():

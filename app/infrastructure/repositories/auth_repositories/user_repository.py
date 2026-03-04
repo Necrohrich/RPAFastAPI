@@ -4,12 +4,14 @@ from typing import Optional
 from uuid import UUID
 
 from sqlalchemy import select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.entities.user import User
 from app.domain.enums.platform_role_enum import PlatformRoleEnum
 from app.domain.repositories.auth_repositories.user_repository import IUserRepository
 from app.infrastructure.models import UserModel, RefreshTokenModel
+from app.infrastructure.repositories.exception_handlers import handle_user_integrity_error
 from app.utils.mapper import Mapper
 
 class UserRepository(IUserRepository):
@@ -20,7 +22,10 @@ class UserRepository(IUserRepository):
     async def create(self, user: User) -> None:
         model = Mapper.entity_to_model(user, UserModel)
         self.session.add(model)
-        await self.session.flush()
+        try:
+            await self.session.flush()
+        except IntegrityError as e:
+            handle_user_integrity_error(e)
 
     async def get_by_email(self, email: str) -> Optional[User]:
         stmt = select(UserModel).where(

@@ -17,8 +17,8 @@ class RPABot(commands.InteractionBot):
 
         self._startup_notified: bool = False
 
-    async def setup_hook(self):
-        await load_cogs(self)
+    async def on_connect(self):
+        load_cogs(self)
         setup_error_handlers(self)
         register_views(self)
 

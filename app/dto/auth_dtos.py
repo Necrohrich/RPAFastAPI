@@ -6,9 +6,10 @@ from pydantic import BaseModel, Field, EmailStr
 from app.domain.enums.platform_role_enum import PlatformRoleEnum
 
 class RegisterRequestDTO(BaseModel):
-    login: str = Field(min_length=3, max_length=255)
+    login: str = Field(min_length=3, max_length=30)
     email: EmailStr
-    password: str = Field(min_length=6, max_length=128)
+    password: str = Field(min_length=8, max_length=128)
+    discord_id: int | None
 
 class AuthResponseDTO(BaseModel):
     access_token: str
@@ -17,7 +18,7 @@ class AuthResponseDTO(BaseModel):
 
 class LoginRequestDTO(BaseModel):
     email: EmailStr
-    password: str
+    password: str = Field(min_length=8, max_length=128)
     device_info: str | None = None
 
 class RefreshRequestDTO(BaseModel):

@@ -17,6 +17,7 @@ from app.infrastructure.security.password_hasher import PasswordHasher
 from app.infrastructure.security.refresh_token_provider import RefreshTokenProvider
 from app.utils.mapper import Mapper
 from app.validators.auth_validators import PasswordValidator, LoginValidator
+from app.validators.user_validators import DiscordValidator
 
 
 class AuthService:
@@ -79,6 +80,7 @@ class AuthService:
 
         LoginValidator.validate(dto.login)
         PasswordValidator.validate_strength(dto.password)
+        DiscordValidator.validate_discord_id(dto.discord_id)
 
         user = User(
             id=uuid4(),
@@ -86,7 +88,7 @@ class AuthService:
             primary_email=dto.email,
             secondary_email=None,
             password_hash=PasswordHasher.hash(dto.password),
-            primary_discord_id=None,
+            primary_discord_id=dto.discord_id,
             secondary_discord_id=None,
             platform_role=None,
             token_version=0,
