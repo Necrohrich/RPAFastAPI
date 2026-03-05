@@ -47,15 +47,13 @@ class UserService:
         if not user:
             raise NotFoundError()
 
+        if not PasswordHasher.verify(dto.old_password, user.password_hash):
+            raise PasswordWrongError()
+
         PasswordValidator.validate_strength(dto.new_password)
 
         if dto.old_password == dto.new_password:
             raise PasswordSameError()
-
-        old_password_hash = PasswordHasher.hash(dto.old_password)
-
-        if old_password_hash != user.password_hash:
-            raise PasswordWrongError()
 
         new_password_hash = PasswordHasher.hash(dto.new_password)
 

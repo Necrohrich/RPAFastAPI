@@ -15,4 +15,5 @@ class UserCog(commands.Cog):
     @discord_policy()
     async def me(self, inter: ApplicationCommandInteraction) -> None:
         embed = build_profile_embed(inter.user_data)  # noqa
-        await inter.send(embed=embed, view=ProfileView())
+        await inter.author.send(embed=embed, view=ProfileView())
+        await inter.send("✅ Профиль отправлен в личные сообщения", ephemeral=True)
