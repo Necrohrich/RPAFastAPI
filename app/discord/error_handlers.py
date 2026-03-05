@@ -7,7 +7,7 @@ from pydantic import ValidationError as PydanticValidationError
 from app.exceptions.auth_exceptions import AuthError, InvalidCredentials, InvalidToken, TokenExpired
 from app.exceptions.common_exceptions import ApplicationError, NotFoundError, ValidationError, PermissionDenied
 from app.exceptions.user_exceptions import LoginAlreadyExists, EmailAlreadyExists, DiscordAlreadyLinked, \
-    PasswordSameError, PasswordWrongError
+    PasswordSameError, PasswordWrongError, DiscordSameAsPrimary, EmailSameAsPrimary
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +16,11 @@ _ERROR_MAP: dict[type[Exception], tuple[str, str, disnake.Color]] = {
     EmailAlreadyExists: (
         "Email уже занят",
         "Пользователь с таким email уже зарегистрирован.",
+        disnake.Color.orange(),
+    ),
+    EmailSameAsPrimary: (
+        "Совпадение Email",
+        "Secondary Email совпадает с primary.",
         disnake.Color.orange(),
     ),
     LoginAlreadyExists: (
@@ -28,8 +33,13 @@ _ERROR_MAP: dict[type[Exception], tuple[str, str, disnake.Color]] = {
         "Этот Discord аккаунт уже привязан к другому пользователю.",
         disnake.Color.orange(),
     ),
+    DiscordSameAsPrimary:(
+        "Совпадение Discord ID",
+        "Secondary Discord ID совпадает с primary.",
+        disnake.Color.orange(),
+    ),
     PasswordSameError: (
-        "Несоответствие паролей",
+        "Совпадение паролей",
         "Новый пароль должен отличаться от текущего.",
         disnake.Color.orange(),
     ),

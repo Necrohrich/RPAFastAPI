@@ -12,8 +12,16 @@ class EmailAlreadyExists(UserError):
     """Email уже используется"""
     pass
 
+class EmailSameAsPrimary(UserError):
+    """Secondary Email совпадает с primary"""
+    pass
+
 class DiscordAlreadyLinked(UserError):
     """Discord аккаунт уже привязан"""
+    pass
+
+class DiscordSameAsPrimary(UserError):
+    """Secondary Discord ID совпадает с primary"""
     pass
 
 class PasswordSameError(UserError):

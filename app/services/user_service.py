@@ -6,7 +6,8 @@ from app.domain.repositories.auth_repositories.discord_repositories import IDisc
 from app.domain.repositories.auth_repositories.user_repository import IUserRepository
 from app.dto.auth_dtos import UserDTO, ChangePasswordDTO
 from app.exceptions.common_exceptions import NotFoundError
-from app.exceptions.user_exceptions import PasswordSameError, PasswordWrongError
+from app.exceptions.user_exceptions import PasswordSameError, PasswordWrongError, DiscordAlreadyLinked, \
+    DiscordSameAsPrimary, EmailSameAsPrimary, EmailAlreadyExists
 from app.infrastructure.security.password_hasher import PasswordHasher
 from app.utils.mapper import Mapper
 from app.validators.auth_validators import PasswordValidator
@@ -67,18 +68,62 @@ class UserService:
 
     async def update_role(self, user_id: UUID, role: PlatformRoleEnum):
         RoleValidator.validate_role(role)
+
+        user = await self.user_repo.get_by_id(user_id)
+
+        if not user:
+            raise NotFoundError()
+
         await self.user_repo.update_role(user_id, role)
 
     async def attach_secondary_email(self, user_id: UUID, email: str):
+
+        user = await self.user_repo.get_by_id(user_id)
+
+        if not user:
+            raise NotFoundError()
+
+        if user.primary_email == email:
+            raise EmailSameAsPrimary()
+
+        check_user = await self.user_repo.get_by_email(email)
+
+        if check_user:
+            raise EmailAlreadyExists()
 
         await self.user_repo.attach_secondary_email(user_id, email)
 
     async def attach_primary_discord_id(self, user_id: UUID, discord_id: int):
         DiscordValidator.validate_discord_id(discord_id)
+
+        user = await self.user_repo.get_by_id(user_id)
+
+        if not user:
+            raise NotFoundError()
+
+        check_user = await self.discord_repo.get_user_by_discord_id(discord_id)
+
+        if check_user:
+            raise DiscordAlreadyLinked()
+
         await self.discord_repo.attach_priority(user_id, discord_id)
 
     async def attach_secondary_discord_id(self, user_id: UUID, discord_id: int):
         DiscordValidator.validate_discord_id(discord_id)
+
+        user = await self.user_repo.get_by_id(user_id)
+
+        if not user:
+            raise NotFoundError()
+
+        if user.primary_discord_id == discord_id:
+            raise DiscordSameAsPrimary()
+
+        check_user = await self.discord_repo.get_user_by_discord_id(discord_id)
+
+        if check_user:
+            raise DiscordAlreadyLinked()
+
         await self.discord_repo.attach_secondary(user_id, discord_id)
 
     async def get_user_by_discord(self, discord_id: int) -> UserDTO:
