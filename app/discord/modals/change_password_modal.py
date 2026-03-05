@@ -45,8 +45,3 @@ class ChangePasswordModal(BaseModal):
             await user_service.change_password(user.id, dto)
 
         await inter.followup.send("✅ Пароль успешно изменен", ephemeral=True)
-
-
-
-
-

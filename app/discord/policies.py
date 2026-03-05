@@ -19,7 +19,8 @@ def discord_policy():
                     user = await user_service.get_user_by_discord(inter.author.id)
             except NotFoundError:
                 raise InvalidToken()
-            return await func(self, inter, user, *args, **kwargs)
+            inter.user_data = user  # прокидываем через inter
+            return await func(self, inter, *args, **kwargs)
         return wrapper
     return decorator
 

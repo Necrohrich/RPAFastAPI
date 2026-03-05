@@ -38,3 +38,8 @@ class ProfileView(BaseView):
     @button(label="Attach Second Discord Id", style=ButtonStyle.primary, custom_id="profile:attach_discord_id", row=0)
     async def attach_discord_id_button(self, _: Button, inter: MessageInteraction) -> None:
         await inter.response.send_modal(AttachDiscordIdModal())
+
+    @button(label="Close", style=ButtonStyle.danger, custom_id="profile:close", row=0)
+    async def close_button(self, _: Button, inter: MessageInteraction) -> None:
+        await inter.response.defer()
+        await inter.delete_original_response()
