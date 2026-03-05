@@ -35,6 +35,7 @@ class UserDTO(BaseModel):
     platform_role: PlatformRoleEnum | None = None
 
 class ChangePasswordDTO(BaseModel):
+    old_password: str
     new_password: str
 
 class SecondaryEmailDTO(BaseModel):

@@ -28,10 +28,7 @@ async def change_my_password(
     current_user: UserDTO = Depends(get_current_user),
     service: UserService = Depends(get_user_service),
 ):
-    await service.change_password(
-        user_id=current_user.id,
-        new_password=dto.new_password,
-    )
+    await service.change_password(current_user.id, dto)
 
 @router.patch(
     "/me/secondary-email",

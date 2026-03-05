@@ -4,8 +4,9 @@ from uuid import UUID
 from app.domain.enums.platform_role_enum import PlatformRoleEnum
 from app.domain.repositories.auth_repositories.discord_repositories import IDiscordRepository
 from app.domain.repositories.auth_repositories.user_repository import IUserRepository
-from app.dto.auth_dtos import UserDTO
+from app.dto.auth_dtos import UserDTO, ChangePasswordDTO
 from app.exceptions.common_exceptions import NotFoundError
+from app.exceptions.user_exceptions import PasswordSameError, PasswordWrongError
 from app.infrastructure.security.password_hasher import PasswordHasher
 from app.utils.mapper import Mapper
 from app.validators.auth_validators import PasswordValidator
@@ -38,21 +39,29 @@ class UserService:
         self.user_repo = user_repo
         self.discord_repo = discord_repo
 
-    async def change_password(self, user_id: UUID, new_password: str):
-
-        PasswordValidator.validate_strength(new_password)
-
-        password_hash = PasswordHasher.hash(new_password)
-
-        await self.user_repo.update_password(user_id, password_hash)
+    async def change_password(self, user_id: UUID, dto: ChangePasswordDTO):
 
         user = await self.user_repo.get_by_id(user_id)
 
         if not user:
             raise NotFoundError()
 
+        PasswordValidator.validate_strength(dto.new_password)
+
+        if dto.old_password == dto.new_password:
+            raise PasswordSameError()
+
+        old_password_hash = PasswordHasher.hash(dto.old_password)
+
+        if old_password_hash != user.password_hash:
+            raise PasswordWrongError()
+
+        new_password_hash = PasswordHasher.hash(dto.new_password)
+
+        await self.user_repo.update_password(user.id, new_password_hash)
+
         await self.user_repo.update_token_version(
-            user_id,
+            user.id,
             user.token_version + 1
         )
 

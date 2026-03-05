@@ -6,7 +6,8 @@ from disnake.ext import commands
 from pydantic import ValidationError as PydanticValidationError
 from app.exceptions.auth_exceptions import AuthError, InvalidCredentials, InvalidToken, TokenExpired
 from app.exceptions.common_exceptions import ApplicationError, NotFoundError, ValidationError, PermissionDenied
-from app.exceptions.user_exceptions import LoginAlreadyExists, EmailAlreadyExists, DiscordAlreadyLinked
+from app.exceptions.user_exceptions import LoginAlreadyExists, EmailAlreadyExists, DiscordAlreadyLinked, \
+    PasswordSameError, PasswordWrongError
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +26,16 @@ _ERROR_MAP: dict[type[Exception], tuple[str, str, disnake.Color]] = {
     DiscordAlreadyLinked: (
         "Discord уже привязан",
         "Этот Discord аккаунт уже привязан к другому пользователю.",
+        disnake.Color.orange(),
+    ),
+    PasswordSameError: (
+        "Несоответствие паролей",
+        "Новый пароль должен отличаться от текущего.",
+        disnake.Color.orange(),
+    ),
+    PasswordWrongError: (
+        "Неверный пароль",
+        "Старый пароль введён неверно.",
         disnake.Color.orange(),
     ),
     # Auth exceptions

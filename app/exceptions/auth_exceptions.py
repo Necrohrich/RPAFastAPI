@@ -5,10 +5,13 @@ class AuthError(Exception):
     pass
 
 class InvalidCredentials(AuthError):
+    """Неверный логин или пароль"""
     pass
 
 class InvalidToken(AuthError):
+    """Токен недействителен"""
     pass
 
 class TokenExpired(AuthError):
+    """Срок действия токена истёк"""
     pass
