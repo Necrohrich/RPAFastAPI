@@ -19,13 +19,9 @@ class IDiscordRepository(ABC):
     """
 
     @abstractmethod
-    async def attach_priority(self, user_id: UUID, discord_id: int) -> None:
-        pass
+    async def attach_priority(self, user_id: UUID, discord_id: int) -> None: ...
 
     @abstractmethod
-    async def attach_secondary(self, user_id: UUID, discord_id: int) -> None:
-        pass
-
+    async def attach_secondary(self, user_id: UUID, discord_id: int) -> None: ...
     @abstractmethod
-    async def get_user_by_discord_id(self, discord_id: int) -> Optional[User]:
-        pass
+    async def get_user_by_discord_id(self, discord_id: int) -> Optional[User]: ...

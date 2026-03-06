@@ -4,7 +4,7 @@ from typing import Optional
 from uuid import UUID
 
 from app.domain.entities import Character, Game, User
-from app.domain.enums.platform_role_enum import PlatformRoleEnum
+from app.domain.enums import PlatformRoleEnum
 
 class IUserRepository(ABC):
     """
@@ -23,37 +23,29 @@ class IUserRepository(ABC):
     """
 
     @abstractmethod
-    async def create(self, user: User) -> None:
-        pass
+    async def create(self, user: User) -> None: ...
 
     @abstractmethod
-    async def get_by_email(self, email: str) -> Optional[User]:
-        pass
+    async def get_by_email(self, email: str) -> Optional[User]: ...
+    @abstractmethod
+    async def get_by_id(self, user_id: UUID) -> Optional[User]: ...
 
     @abstractmethod
-    async def get_by_id(self, user_id: UUID) -> Optional[User]:
-        pass
+    async def attach_secondary_email(self, user_id: UUID, email: str) -> None: ...
+    @abstractmethod
+    async def update_password(self, user_id: UUID, password_hash: str) -> None: ...
 
     @abstractmethod
-    async def attach_secondary_email(self, user_id: UUID, email: str) -> None:
-        pass
+    async def update_role(self, user_id: UUID, role: PlatformRoleEnum) -> None: ...
 
     @abstractmethod
-    async def update_password(self, user_id: UUID, password_hash: str) -> None:
-        pass
+    async def update_token_version(self, user_id: UUID, version: int) -> None: ...
 
     @abstractmethod
-    async def update_role(self, user_id: UUID, role: PlatformRoleEnum) -> None:
-        pass
+    async def get_my_games(self, user_id: UUID) -> list[Game]: ...
 
     @abstractmethod
-    async def update_token_version(self, user_id: UUID, version: int) -> None:
-        pass
+    async def get_participated_games(self, user_id: UUID) -> list[Game]: ...
 
     @abstractmethod
-    async def get_my_games(self, user_id: UUID) -> list[Game]:
-        pass
-
-    @abstractmethod
-    async def get_my_characters(self, user_id: UUID) -> list[Character]:
-        pass
+    async def get_my_characters(self, user_id: UUID) -> list[Character]: ...

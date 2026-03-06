@@ -6,6 +6,7 @@ from uuid import UUID
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.domain.entities import User, Game, Character
 from app.domain.enums import PlatformRoleEnum
@@ -81,7 +82,43 @@ class UserRepository(IUserRepository):
         await self.session.execute(stmt_revoke)
 
     async def get_my_games(self, user_id: UUID) -> list[Game]:
-        pass
+        stmt = (
+            select(UserModel)
+            .where(UserModel.id == user_id)
+            .options(selectinload(UserModel.games))
+        )
+        result = await self.session.execute(stmt)
+        model = result.scalar_one_or_none()
+
+        if model is None:
+            return []
+
+        return [Mapper.model_to_entity(game, Game) for game in model.games]
+
+    async def get_participated_games(self, user_id: UUID) -> list[Game]:
+        stmt = (
+            select(UserModel)
+            .where(UserModel.id == user_id)
+            .options(selectinload(UserModel.participated_games))
+        )
+        result = await self.session.execute(stmt)
+        model = result.scalar_one_or_none()
+
+        if model is None:
+            return []
+
+        return [Mapper.model_to_entity(game, Game) for game in model.participated_games]
 
     async def get_my_characters(self, user_id: UUID) -> list[Character]:
-        pass
+        stmt = (
+            select(UserModel)
+            .where(UserModel.id == user_id)
+            .options(selectinload(UserModel.characters))
+        )
+        result = await self.session.execute(stmt)
+        model = result.scalar_one_or_none()
+
+        if model is None:
+            return []
+
+        return [Mapper.model_to_entity(character, Character) for character in model.characters]
