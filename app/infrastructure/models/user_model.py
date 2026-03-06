@@ -2,7 +2,7 @@
 from typing import Optional
 
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import String, BigInteger, CheckConstraint, Integer, Index
+from sqlalchemy import String, BigInteger, Integer, Index
 from sqlalchemy import Enum as SQLEnum
 
 from app.domain.enums.platform_role_enum import PlatformRoleEnum
@@ -14,7 +14,7 @@ class UserModel(BaseModel):
      Основная сущность платформы. Содержит email, Discord ID, пароль, роль и версию токена.
 
     Связи:
-        * Один-ко-многим: games (автор игр), characters (персонажи)
+        * Один-ко-многим: games (автор игр), characters (персонажи), participated_games (игры участия)
 
     Ключевые поля:
         * primary_email — основной email (уникальный, NOT NULL)
@@ -36,9 +36,10 @@ class UserModel(BaseModel):
 
     token_version: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0", default=0, index=True)
 
-    # Связи Many-to-One
+    # Связи One-to-Many
     games: Mapped[list["GameModel"]] = relationship(back_populates='author') # type: ignore[import]
     characters: Mapped[list["CharacterModel"]] = relationship(back_populates='author') # type: ignore[import]
+    participated_games: Mapped[list["GamePlayerModel"]] = relationship(back_populates="user") # type: ignore[import]
 
     __table_args__ = (
         Index(

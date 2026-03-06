@@ -33,11 +33,11 @@ class CharacterModel(BaseModel):
     game_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey('games.id'),
-        nullable=False,
+        nullable=True,
         index=True
     )
     avatar: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, unique=True)
-    game_system_key: Mapped[Optional[uuid.UUID]] = mapped_column(
+    game_system_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey('game_systems.id'),
         nullable=True,

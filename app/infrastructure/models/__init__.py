@@ -1,6 +1,7 @@
 from app.infrastructure.models.base_model import BaseModel
 from app.infrastructure.models.character_model import CharacterModel
 from app.infrastructure.models.game_model import GameModel
+from app.infrastructure.models.game_player_model import GamePlayerModel
 from app.infrastructure.models.game_session_model import GameSessionModel
 from app.infrastructure.models.game_system_model import GameSystemModel
 from app.infrastructure.models.refresh_token_model import RefreshTokenModel
@@ -11,7 +12,8 @@ __all__ = [
     "UserModel",
     "CharacterModel",
     "GameModel",
+    "GamePlayerModel",
     "GameSessionModel",
     "GameSystemModel",
-    "RefreshTokenModel"
+    "RefreshTokenModel",
 ]

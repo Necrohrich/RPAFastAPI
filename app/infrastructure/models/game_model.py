@@ -14,13 +14,13 @@ class GameModel(BaseModel):
 
     Связи:
         * Многие-к-одному: author (User), game_system (GameSystem)
-        * Один-ко-многим: characters, game_sessions
+        * Один-ко-многим: characters, game_sessions, players
 
     Ключевые поля:
         * name — название игры, уникальное для каждого пользователя
         * author_id — создатель (FK → users.id)
         * discord_role_id — роль Discord для участников
-        * game_system_key — система правил (D&D, Pathfinder)
+        * game_system_id — система правил (D&D, Pathfinder)
     """
     __tablename__ = 'games'
 
@@ -34,7 +34,7 @@ class GameModel(BaseModel):
     gm_id: Mapped[int] = mapped_column(BigInteger, nullable=True)
     discord_role_id: Mapped[int] = mapped_column(BigInteger, nullable=True)
     discord_main_channel_id: Mapped[int] = mapped_column(BigInteger, nullable=True)
-    game_system_key: Mapped[uuid.UUID] = mapped_column(
+    game_system_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey('game_systems.id'),
         nullable=False,
@@ -48,6 +48,7 @@ class GameModel(BaseModel):
     # Связи One-to-Many
     characters: Mapped[list["CharacterModel"]] = relationship(back_populates='game') # type: ignore[import]
     game_sessions: Mapped[list["GameSessionModel"]] = relationship(back_populates='game') # type: ignore[import]
+    players: Mapped[list["GamePlayerModel"]] = relationship(back_populates="game") # type: ignore[import]
 
     __table_args__ = (
         UniqueConstraint('name', 'author_id', name='uq_game_name_author'),

@@ -14,12 +14,12 @@ class Character(BaseEntity):
         user_id (UUID): Указывает идентификатор привязанного User.
         game_id (UUID): Указывает идентификатор привязанного Game.
         avatar (str): Ссылка на аватар персонажа.
-        game_system_key (UUID): Ключ системы для привязки к игровым правилам.
+        game_system_id (UUID): Ключ системы для привязки к игровым правилам.
         sheet_data (dict): Хранит логику анкеты игровой системы
     """
     name: str
     user_id: UUID
-    game_id: UUID
+    game_id: UUID | None = None
     avatar: str = ""
-    game_system_key: UUID | None = None
+    game_system_id: UUID | None = None
     sheet_data: dict = field(default_factory=dict)

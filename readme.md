@@ -1,9 +1,11 @@
-# Alembic
+## Alembic
 alembic -c alembic.ini revision --autogenerate -m "добавить таблицу"
+
 alembic -c alembic.ini upgrade head
+
 alembic -c alembic.ini downgrade -1
 
-# Ссылка для Discord-бота
+## Ссылка для Discord-бота
 
 ```jupyterpython
 import discord

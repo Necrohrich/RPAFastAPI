@@ -45,6 +45,17 @@
   <component name="DBNavigator.Project.DatabaseSessionManager">
     <connection id="4b01355b-c194-4c18-bfca-4d0ed4e0bcca" />
   </component>
+  <component name="DBNavigator.Project.DatasetFilterManager">
+    <filter-actions connection-id="4b01355b-c194-4c18-bfca-4d0ed4e0bcca" dataset="public.games" active-filter-id="e622ef5d-0688-49a0-96fe-ad795b8c47a7">
+      <filter id="e622ef5d-0688-49a0-96fe-ad795b8c47a7" name="Filter" temporary="false" custom-name="false" type="basic" join-type="AND" />
+    </filter-actions>
+    <filter-actions connection-id="4b01355b-c194-4c18-bfca-4d0ed4e0bcca" dataset="public.game_players" active-filter-id="aa1962b8-3a47-4d63-b380-2e5b96b2cb82">
+      <filter id="aa1962b8-3a47-4d63-b380-2e5b96b2cb82" name="Filter" temporary="false" custom-name="false" type="basic" join-type="AND" />
+    </filter-actions>
+  </component>
+  <component name="DBNavigator.Project.ExecutionManager">
+    <retain-sticky-names value="false" />
+  </component>
   <component name="DBNavigator.Project.ObjectQuickFilterManager">
     <last-used-operator value="EQUAL" />
     <filters />
