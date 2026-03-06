@@ -6,6 +6,21 @@ from app.domain.entities import Character
 
 
 class ICharacterRepository(ABC):
+    """
+        Интерфейс репозитория для работы с персонажами.
+
+        Управляет CRUD операциями персонажей, поддерживает загрузку связанных сущностей
+        и фильтрацию по владельцу или игре.
+
+        Методы:
+            * create — создаёт нового персонажа и возвращает его с присвоенным ID
+            * get_by_id — возвращает персонажа по UUID без загрузки связей
+            * get_by_id_with_relations — возвращает персонажа по UUID с полной загрузкой author, game, game_system
+            * get_by_user_id — возвращает всех персонажей пользователя по его UUID
+            * get_by_game_id — возвращает всех персонажей в игре по UUID игры
+            * update — обновляет поля персонажа и возвращает обновлённую сущность
+            * delete — физически удаляет персонажа по UUID
+    """
 
     @abstractmethod
     async def create(self, character: Character) -> Character: ...
