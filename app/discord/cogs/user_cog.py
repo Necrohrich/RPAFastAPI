@@ -4,7 +4,7 @@ from disnake.ext import commands
 
 from app.discord.embeds.build_profile_embed import build_profile_embed
 from app.discord.policies import discord_policy
-from app.discord.views.profile_view import ProfileView
+from app.discord.views import ProfileView
 
 
 class UserCog(commands.Cog):

@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from typing import Optional
 from uuid import UUID
 
-from app.domain.entities.user import User
+from app.domain.entities import Character, Game, User
 from app.domain.enums.platform_role_enum import PlatformRoleEnum
 
 class IUserRepository(ABC):
@@ -48,4 +48,12 @@ class IUserRepository(ABC):
 
     @abstractmethod
     async def update_token_version(self, user_id: UUID, version: int) -> None:
+        pass
+
+    @abstractmethod
+    async def get_my_games(self, user_id: UUID) -> list[Game]:
+        pass
+
+    @abstractmethod
+    async def get_my_characters(self, user_id: UUID) -> list[Character]:
         pass

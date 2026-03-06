@@ -4,8 +4,8 @@ from disnake.ext import commands
 
 from app.discord.embeds.build_auth_embed import build_auth_embed
 from app.discord.policies import require_role
-from app.discord.views.auth_view import AuthView
-from app.domain.policies.platform_policies import PlatformPolicies
+from app.discord.views import AuthView
+from app.domain.policies import PlatformPolicies
 
 
 class AuthCog(commands.Cog):

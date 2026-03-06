@@ -7,12 +7,12 @@ from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domain.entities.user import User
-from app.domain.enums.platform_role_enum import PlatformRoleEnum
-from app.domain.repositories.auth_repositories.user_repository import IUserRepository
+from app.domain.entities import User, Game, Character
+from app.domain.enums import PlatformRoleEnum
+from app.domain.repositories import IUserRepository
 from app.infrastructure.models import UserModel, RefreshTokenModel
 from app.infrastructure.repositories.exception_handlers import handle_user_integrity_error
-from app.utils.mapper import Mapper
+from app.utils import Mapper
 
 class UserRepository(IUserRepository):
 
@@ -79,3 +79,9 @@ class UserRepository(IUserRepository):
             .values(revoked_at=datetime.now(timezone.utc))
         )
         await self.session.execute(stmt_revoke)
+
+    async def get_my_games(self, user_id: UUID) -> list[Game]:
+        pass
+
+    async def get_my_characters(self, user_id: UUID) -> list[Character]:
+        pass

@@ -1,15 +1,12 @@
 #app/api/dependencies.py
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infrastructure.db.database import get_uow, UnitOfWork
-from app.infrastructure.repositories.auth_repositories.discord_repository import DiscordRepository
-from app.infrastructure.repositories.auth_repositories.token_repository import TokenRepository
-from app.infrastructure.repositories.auth_repositories.user_repository import UserRepository
-from app.services.auth_service import AuthService
+from app.infrastructure.repositories import DiscordRepository, TokenRepository, UserRepository
+from app.services import AuthService, UserService
 from app.dto.auth_dtos import UserDTO
-from app.services.user_service import UserService
 
 security = HTTPBearer()
 
