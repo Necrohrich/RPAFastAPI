@@ -20,3 +20,5 @@ class UpdateGameDTO(BaseModel):
     gm_id: Optional[int] = None
     discord_role_id: Optional[int] = None
     discord_main_channel_id: Optional[int] = None
+
+class GameResponseDTO(BaseModel):...

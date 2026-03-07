@@ -15,3 +15,7 @@ class CharacterAlreadyExistsException(CharacterError):
 class CharacterGameSystemMismatchException(CharacterError):
     """Игровая система персонажа не совпадает с игровой системой игры"""
     pass
+
+class CharacterPermissionException(CharacterError):
+    """Отправитель запроса не является автором персонажа"""
+    pass

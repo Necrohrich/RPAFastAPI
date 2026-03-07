@@ -23,6 +23,7 @@ __all__ = [
     "CharacterNotFoundException",
     "CharacterAlreadyExistsException",
     "CharacterGameSystemMismatchException",
+    "CharacterPermissionException",
     "GameError",
     "GameNotFoundException",
     "GameAlreadyExistsException",

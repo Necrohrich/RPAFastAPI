@@ -2,6 +2,10 @@
 
 from dataclasses import dataclass, field
 from uuid import UUID
+
+from app.domain.entities.game_system import GameSystem
+from app.domain.entities.game import Game
+from app.domain.entities.user import User
 from app.domain.entities.base_entity import BaseEntity
 
 @dataclass(kw_only=True)
@@ -23,3 +27,7 @@ class Character(BaseEntity):
     avatar: str = ""
     game_system_id: UUID | None = None
     sheet_data: dict = field(default_factory=dict)
+    # Relations — заполняются только в with_relations запросах
+    author: User | None = None
+    game: Game | None = None
+    game_system: GameSystem | None = None

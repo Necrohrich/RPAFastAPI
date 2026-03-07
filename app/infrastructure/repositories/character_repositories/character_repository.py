@@ -7,7 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-from app.domain.entities import Character
+from app.domain.entities import Character, User, Game, GameSystem
 from app.domain.repositories import ICharacterRepository
 from app.infrastructure.models import CharacterModel
 from app.infrastructure.repositories.exception_handlers import handle_user_integrity_error
@@ -59,21 +59,35 @@ class CharacterRepository(ICharacterRepository):
             return None
         return Mapper.model_to_entity(model, Character)
 
-    async def get_by_user_id(self, user_id: UUID) -> list[Character]:
+    async def get_by_user_id(self, user_id: UUID, offset: int, limit: int) -> list[Character]:
         stmt = self._active(
             select(CharacterModel).where(CharacterModel.user_id == user_id)
+        ).offset(offset).limit(limit)
+        result = await self.session.execute(stmt)
+        return [Mapper.model_to_entity(m, Character) for m in result.scalars().all()]
+
+    async def count_by_user_id(self, user_id: UUID) -> int:
+        stmt = self._active(
+            select(func.count()).select_from(CharacterModel)
+            .where(CharacterModel.user_id == user_id)
         )
         result = await self.session.execute(stmt)
-        models = result.scalars().all()
-        return [Mapper.model_to_entity(model, Character) for model in models]
+        return result.scalar_one()
 
-    async def get_by_game_id(self, game_id: UUID) -> list[Character]:
+    async def get_by_game_id(self, game_id: UUID, offset: int, limit: int) -> list[Character]:
         stmt = self._active(
             select(CharacterModel).where(CharacterModel.game_id == game_id)
+        ).offset(offset).limit(limit)
+        result = await self.session.execute(stmt)
+        return [Mapper.model_to_entity(m, Character) for m in result.scalars().all()]
+
+    async def count_by_game_id(self, game_id: UUID) -> int:
+        stmt = self._active(
+            select(func.count()).select_from(CharacterModel)
+            .where(CharacterModel.game_id == game_id)
         )
         result = await self.session.execute(stmt)
-        models = result.scalars().all()
-        return [Mapper.model_to_entity(model, Character) for model in models]
+        return result.scalar_one()
 
     async def update(self, character: Character) -> Character:
         stmt = (
@@ -90,8 +104,19 @@ class CharacterRepository(ICharacterRepository):
             )
             .execution_options(synchronize_session="fetch")
         )
-        await self.session.execute(stmt)
-        return character
+        result = await self.session.execute(stmt)
+        model = result.unique().scalar_one_or_none()
+        if not model:
+            return None
+        return Mapper.model_to_entity_with_relations(
+            model,
+            Character,
+            relations={
+                "author": (model.author, User),
+                "game": (model.game, Game),
+                "game_system": (model.game_system, GameSystem),
+            }
+        )
 
     async def soft_delete(self, character_id: UUID) -> None:
         stmt = (

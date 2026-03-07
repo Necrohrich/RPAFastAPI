@@ -52,6 +52,38 @@ class Mapper:
         return entity_cls(**filtered)  # type: ignore[arg-type]
 
     @staticmethod
+    def model_to_entity_with_relations(
+            model: Any,
+            entity_cls: Type[TEntity],
+            relations: Dict[str, tuple[Any, Type]]  # {"author": (model.author, User)}
+    ) -> TEntity:
+        """
+        Маппит модель в сущность с дополнительными relationship полями.
+        relations = {"field_name": (related_model_instance, RelatedEntityClass)}
+        """
+        data = Mapper._model_columns_as_dict(model)
+
+        # Добавляем смаппленные relations
+        for field_name, (related_model, related_cls) in relations.items():
+            if related_model is not None:
+                data[field_name] = Mapper.model_to_entity(related_model, related_cls)
+            else:
+                data[field_name] = None
+
+        if is_dataclass(entity_cls):
+            fields = set(entity_cls.__dataclass_fields__.keys())
+            filtered = {k: v for k, v in data.items() if k in fields}
+            return entity_cls(**filtered) # type: ignore[arg-type]
+
+        if isinstance(entity_cls, type) and issubclass(entity_cls, BaseModel):
+            return entity_cls(**data)
+
+        init_anns = getattr(entity_cls.__init__, "__annotations__", {})
+        fields = set(init_anns.keys()) - {"return"}
+        filtered = {k: v for k, v in data.items() if k in fields}
+        return entity_cls(**filtered)
+
+    @staticmethod
     def _entity_to_dict(entity: Any) -> Dict[str, Any]:
         """Универсально получить dict из dataclass | pydantic | обычного объекта."""
         if is_dataclass(entity) and not isinstance(entity, type):
