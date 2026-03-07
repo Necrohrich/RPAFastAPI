@@ -1,4 +1,5 @@
-__all__=[
+# app/exceptions/__init__.py
+__all__ = [
     "AuthError",
     "InvalidCredentials",
     "InvalidToken",
@@ -14,10 +15,25 @@ __all__=[
     "DiscordAlreadyLinked",
     "DiscordSameAsPrimary",
     "PasswordSameError",
-    "PasswordWrongError"
+    "PasswordWrongError",
+    "GameSystemError",
+    "GameSystemNotFoundException",
+    "GameSystemAlreadyExistsException",
+    "CharacterError",
+    "CharacterNotFoundException",
+    "CharacterAlreadyExistsException",
+    "CharacterGameSystemMismatchException",
+    "GameError",
+    "GameNotFoundException",
+    "GameAlreadyExistsException",
+    "PlayerAlreadyInGameException",
+    "PlayerNotFoundException",
+    "NotGameAuthorException",
 ]
 
-from app.exceptions.auth_exceptions import AuthError, InvalidCredentials, InvalidToken, TokenExpired
-from app.exceptions.common_exceptions import ApplicationError, NotFoundError, ValidationError, PermissionDenied
-from app.exceptions.user_exceptions import UserError, LoginAlreadyExists, EmailAlreadyExists, EmailSameAsPrimary, \
-    DiscordAlreadyLinked, DiscordSameAsPrimary, PasswordSameError, PasswordWrongError
+from app.exceptions.auth_exceptions import *
+from app.exceptions.character_exceptions import *
+from app.exceptions.common_exceptions import *
+from app.exceptions.game_exceptions import *
+from app.exceptions.game_system_exceptions import *
+from app.exceptions.user_exceptions import *
