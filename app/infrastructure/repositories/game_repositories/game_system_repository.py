@@ -2,7 +2,7 @@
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import select, update, delete
+from sqlalchemy import select, update, delete, func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -43,11 +43,15 @@ class GameSystemRepository(IGameSystemRepository):
             return None
         return Mapper.model_to_entity(model, GameSystem)
 
-    async def get_all(self) -> list[GameSystem]:
-        stmt = select(GameSystemModel)
+    async def get_all(self, offset: int, limit: int) -> list[GameSystem]:
+        stmt = select(GameSystemModel).offset(offset).limit(limit)
         result = await self.session.execute(stmt)
-        models = result.scalars().all()
-        return [Mapper.model_to_entity(model, GameSystem) for model in models]
+        return [Mapper.model_to_entity(m, GameSystem) for m in result.scalars().all()]
+
+    async def count_all(self) -> int:
+        stmt = select(func.count()).select_from(GameSystemModel)
+        result = await self.session.execute(stmt)
+        return result.scalar_one()
 
     async def update(self, game_system: GameSystem) -> GameSystem:
         stmt = (

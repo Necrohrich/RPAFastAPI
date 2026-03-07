@@ -1,6 +1,7 @@
 #app/dto/__init__.py
 
 __all__=[
+    "PaginatedResponseDTO",
     "RegisterRequestDTO",
     "AuthResponseDTO",
     "LoginRequestDTO",
@@ -11,6 +12,7 @@ __all__=[
     "DiscordDTO",
     "CreateGameSystemDTO",
     "UpdateGameSystemDTO",
+    "GameSystemResponseDTO",
     "CreateCharacterDTO",
     "UpdateCharacterDTO",
     "CreateGameDTO",
@@ -19,5 +21,6 @@ __all__=[
 
 from app.dto.auth_dtos import *
 from app.dto.character_dtos import *
+from app.dto.common_dtos import PaginatedResponseDTO
 from app.dto.game_dtos import *
 from app.dto.game_system_dtos import *

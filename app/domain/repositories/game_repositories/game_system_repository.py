@@ -15,6 +15,7 @@ class IGameSystemRepository(ABC):
             * get_by_id — возвращает игровую систему по UUID
             * get_by_name — возвращает игровую систему по уникальному названию
             * get_all — возвращает список всех игровых систем без фильтрации
+            * count_all - возвращает число игровых систем
             * update — обновляет поля игровой системы и возвращает обновлённую сущность
             * delete — физически удаляет игровую систему по UUID
     """
@@ -29,7 +30,10 @@ class IGameSystemRepository(ABC):
     async def get_by_name(self, name: str) -> Optional[GameSystem]: ...
 
     @abstractmethod
-    async def get_all(self) -> list[GameSystem]: ...
+    async def get_all(self, offset: int, limit: int) -> list[GameSystem]: ...
+
+    @abstractmethod
+    async def count_all(self) -> int: ...
 
     @abstractmethod
     async def update(self, game_system: GameSystem) -> GameSystem: ...
