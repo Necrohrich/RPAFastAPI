@@ -2,7 +2,7 @@
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import select, update, delete
+from sqlalchemy import select, update, delete, func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
@@ -19,6 +19,11 @@ class CharacterRepository(ICharacterRepository):
     def __init__(self, session: AsyncSession):
         self.session = session
 
+    @staticmethod
+    def _active(stmt):
+        """Фильтрует запрос, исключая мягко удалённых персонажей"""
+        return stmt.where(CharacterModel.deleted_at.is_(None))
+
     async def create(self, character: Character) -> Character:
         model = Mapper.entity_to_model(character, CharacterModel)
         self.session.add(model)
@@ -29,13 +34,17 @@ class CharacterRepository(ICharacterRepository):
         return Mapper.model_to_entity(model, Character)
 
     async def get_by_id(self, character_id: UUID) -> Optional[Character]:
-        model = await self.session.get(CharacterModel, character_id)
+        stmt = self._active(
+            select(CharacterModel).where(CharacterModel.id == character_id)
+        )
+        result = await self.session.execute(stmt)
+        model = result.scalar_one_or_none()
         if not model:
             return None
         return Mapper.model_to_entity(model, Character)
 
     async def get_by_id_with_relations(self, character_id: UUID) -> Optional[Character]:
-        stmt = (
+        stmt = self._active(
             select(CharacterModel)
             .where(CharacterModel.id == character_id)
             .options(
@@ -51,16 +60,16 @@ class CharacterRepository(ICharacterRepository):
         return Mapper.model_to_entity(model, Character)
 
     async def get_by_user_id(self, user_id: UUID) -> list[Character]:
-        stmt = select(CharacterModel).where(
-            CharacterModel.user_id == user_id
+        stmt = self._active(
+            select(CharacterModel).where(CharacterModel.user_id == user_id)
         )
         result = await self.session.execute(stmt)
         models = result.scalars().all()
         return [Mapper.model_to_entity(model, Character) for model in models]
 
     async def get_by_game_id(self, game_id: UUID) -> list[Character]:
-        stmt = select(CharacterModel).where(
-            CharacterModel.game_id == game_id
+        stmt = self._active(
+            select(CharacterModel).where(CharacterModel.game_id == game_id)
         )
         result = await self.session.execute(stmt)
         models = result.scalars().all()
@@ -70,6 +79,7 @@ class CharacterRepository(ICharacterRepository):
         stmt = (
             update(CharacterModel)
             .where(CharacterModel.id == character.id)
+            .where(CharacterModel.deleted_at.is_(None))
             .values(
                 name=character.name,
                 user_id=character.user_id,
@@ -83,8 +93,26 @@ class CharacterRepository(ICharacterRepository):
         await self.session.execute(stmt)
         return character
 
-    async def delete(self, character_id: UUID) -> None:
-        stmt = delete(CharacterModel).where(
-            CharacterModel.id == character_id
+    async def soft_delete(self, character_id: UUID) -> None:
+        stmt = (
+            update(CharacterModel)
+            .where(CharacterModel.id == character_id)
+            .where(CharacterModel.deleted_at.is_(None))
+            .values(deleted_at=func.now())
+            .execution_options(synchronize_session="fetch")
         )
+        await self.session.execute(stmt)
+
+    async def restore(self, character_id: UUID) -> None:
+        stmt = (
+            update(CharacterModel)
+            .where(CharacterModel.id == character_id)
+            .where(CharacterModel.deleted_at.isnot(None))
+            .values(deleted_at=None)
+            .execution_options(synchronize_session="fetch")
+        )
+        await self.session.execute(stmt)
+
+    async def delete(self, character_id: UUID) -> None:
+        stmt = delete(CharacterModel).where(CharacterModel.id == character_id)
         await self.session.execute(stmt)

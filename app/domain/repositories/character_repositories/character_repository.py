@@ -19,7 +19,9 @@ class ICharacterRepository(ABC):
             * get_by_user_id — возвращает всех персонажей пользователя по его UUID
             * get_by_game_id — возвращает всех персонажей в игре по UUID игры
             * update — обновляет поля персонажа и возвращает обновлённую сущность
-            * delete — физически удаляет персонажа по UUID
+            * soft_delete — помечает персонажа удалённым (deleted_at = now), физически не удаляет
+            * restore — снимает метку удаления с персонажа (deleted_at = NULL)
+            * delete — физически удаляет персонажа по UUID (только для администраторов)
     """
 
     @abstractmethod
@@ -40,6 +42,12 @@ class ICharacterRepository(ABC):
 
     @abstractmethod
     async def update(self, character: Character) -> Character: ...
+
+    @abstractmethod
+    async def soft_delete(self, character_id: UUID) -> None: ...
+
+    @abstractmethod
+    async def restore(self, character_id: UUID) -> None: ...
 
     @abstractmethod
     async def delete(self, character_id: UUID) -> None: ...
