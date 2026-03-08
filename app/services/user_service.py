@@ -143,7 +143,7 @@ class UserService:
         items = await self.user_repo.get_my_games(user_id, offset=offset, limit=page_size)
         total = await self.user_repo.count_my_games(user_id)
         return PaginatedResponseDTO(
-            items=[GameResponseDTO.model_validate(item) for item in items],
+            items=[Mapper.entity_to_dto(item, GameResponseDTO) for item in items],
             total=total,
             page=page,
             page_size=page_size,
@@ -158,7 +158,7 @@ class UserService:
         items = await self.user_repo.get_participated_games(user_id, offset=offset, limit=page_size)
         total = await self.user_repo.count_participated_games(user_id)
         return PaginatedResponseDTO(
-            items=[GameResponseDTO.model_validate(item) for item in items],
+            items=[Mapper.entity_to_dto(item, GameResponseDTO) for item in items],
             total=total,
             page=page,
             page_size=page_size,
@@ -173,7 +173,7 @@ class UserService:
         items = await self.user_repo.get_my_characters(user_id, offset=offset, limit=page_size)
         total = await self.user_repo.count_my_characters(user_id)
         return PaginatedResponseDTO(
-            items=[CharacterResponseDTO.model_validate(item) for item in items],
+            items=[Mapper.entity_to_dto(item, CharacterResponseDTO) for item in items],
             total=total,
             page=page,
             page_size=page_size,

@@ -86,7 +86,7 @@ class GameService:
         items = await self.repo.get_by_author_id(author_id=author_id, offset=offset, limit=page_size)
         total = await self.repo.count_by_author_id(author_id)
         return PaginatedResponseDTO(
-            items=[GameResponseDTO.model_validate(item) for item in items],
+            items=[Mapper.entity_to_dto(item, GameResponseDTO) for item in items],
             total=total,
             page=page,
             page_size=page_size,
@@ -102,7 +102,7 @@ class GameService:
         items = await self.repo.get_players(game_id=game_id, offset=offset, limit=page_size, status=status)
         total = await self.repo.count_players(game_id, status=status)
         return PaginatedResponseDTO(
-            items=[GamePlayerResponseDTO.model_validate(item) for item in items],
+            items=[Mapper.entity_to_dto(item, GamePlayerResponseDTO) for item in items],
             total=total,
             page=page,
             page_size=page_size,

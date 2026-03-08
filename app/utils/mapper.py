@@ -113,7 +113,9 @@ class Mapper:
     @staticmethod
     def entity_to_dto(entity: Any, dto_cls: Type[BaseModel]) -> BaseModel:
         data = Mapper._entity_to_dict(entity)
-        return dto_cls(**data)
+        dto_fields = set(dto_cls.model_fields.keys())
+        filtered = {k: v for k, v in data.items() if k in dto_fields}
+        return dto_cls(**filtered)
 
     @staticmethod
     def _dump_to_dict(obj: Any) -> Dict[str, Any]:

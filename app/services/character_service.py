@@ -82,7 +82,7 @@ class CharacterService:
         total = await self.repo.count_by_game_id(game_id)
 
         return PaginatedResponseDTO(
-            items=[CharacterResponseDTO.model_validate(item) for item in items],
+            items=[Mapper.entity_to_dto(item, CharacterResponseDTO) for item in items],
             total=total,
             page=page,
             page_size=page_size,
@@ -97,7 +97,7 @@ class CharacterService:
         total = await self.repo.count_by_user_id(author_id)
 
         return PaginatedResponseDTO(
-            items=[CharacterResponseDTO.model_validate(item) for item in items],
+            items=[Mapper.entity_to_dto(item, CharacterResponseDTO) for item in items],
             total=total,
             page=page,
             page_size=page_size,

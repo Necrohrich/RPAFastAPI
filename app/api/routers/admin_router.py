@@ -5,15 +5,21 @@ from uuid import UUID
 
 from app.api.security import require_superadmin, require_support
 from app.domain.enums.platform_role_enum import PlatformRoleEnum
+from app.dto import GameSystemResponseDTO, CreateGameSystemDTO, PaginatedResponseDTO, UpdateGameSystemDTO
+from app.services import GameSystemService
 from app.services.auth_service import AuthService
 from app.services.user_service import UserService
-from app.api.dependencies import get_user_service, get_auth_service
+from app.api.dependencies import get_user_service, get_auth_service, get_game_system_service
 from app.dto.auth_dtos import UserDTO
 
 router = APIRouter(
     prefix="/admin",
     tags=["Admin"]
 )
+
+# ────────────────────────────────────────────────────────────
+# Auth
+# ────────────────────────────────────────────────────────────
 
 @router.post(
     "/logout-all",
@@ -26,6 +32,10 @@ async def logout_all(
 ):
     await service.logout_all(user_id)
 
+
+# ────────────────────────────────────────────────────────────
+# Users
+# ────────────────────────────────────────────────────────────
 
 @router.put(
     "/{user_id}/role",
@@ -50,3 +60,70 @@ async def get_user_by_discord(
         service: UserService = Depends(get_user_service),
 ):
     return await service.get_user_by_discord(discord_id)
+
+
+# ────────────────────────────────────────────────────────────
+# Game Systems
+# ────────────────────────────────────────────────────────────
+
+@router.post(
+    "/game-systems",
+    response_model=GameSystemResponseDTO,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_superadmin)]
+)
+async def create_game_system(
+        dto: CreateGameSystemDTO,
+        service: GameSystemService = Depends(get_game_system_service),
+):
+    return await service.create(dto)
+
+
+@router.get(
+    "/game-systems",
+    response_model=PaginatedResponseDTO[GameSystemResponseDTO],
+    dependencies=[Depends(require_support)]
+)
+async def get_all_game_systems(
+        page: int = 1,
+        page_size: int = 20,
+        service: GameSystemService = Depends(get_game_system_service),
+):
+    return await service.get_all(page=page, page_size=page_size)
+
+
+@router.get(
+    "/game-systems/{game_system_id}",
+    response_model=GameSystemResponseDTO,
+    dependencies=[Depends(require_support)]
+)
+async def get_game_system_by_id(
+        game_system_id: UUID,
+        service: GameSystemService = Depends(get_game_system_service),
+):
+    return await service.get_by_id(game_system_id)
+
+
+@router.patch(
+    "/game-systems/{game_system_id}",
+    response_model=GameSystemResponseDTO,
+    dependencies=[Depends(require_superadmin)]
+)
+async def update_game_system(
+        game_system_id: UUID,
+        dto: UpdateGameSystemDTO,
+        service: GameSystemService = Depends(get_game_system_service),
+):
+    return await service.update(game_system_id, dto)
+
+
+@router.delete(
+    "/game-systems/{game_system_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_superadmin)]
+)
+async def delete_game_system(
+        game_system_id: UUID,
+        service: GameSystemService = Depends(get_game_system_service),
+):
+    await service.delete(game_system_id)

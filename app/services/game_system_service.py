@@ -51,6 +51,7 @@ class GameSystemService:
             raise GameSystemNotFoundException()
         return Mapper.entity_to_dto(game_system, GameSystemResponseDTO)
 
+    #не используется
     async def get_by_name(self, name: str) -> GameSystemResponseDTO:
         game_system = await self.repo.get_by_name(name)
         if not game_system:
@@ -63,7 +64,7 @@ class GameSystemService:
         total = await self.repo.count_all()
 
         return PaginatedResponseDTO(
-            items=[GameSystemResponseDTO.model_validate(item) for item in items],
+            items=[Mapper.entity_to_dto(item, GameSystemResponseDTO) for item in items],
             total=total,
             page=page,
             page_size=page_size,
