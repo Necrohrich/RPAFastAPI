@@ -3,15 +3,14 @@ from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import select, update
+from sqlalchemy import select, update, func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from app.domain.entities import User, Game, Character
-from app.domain.enums import PlatformRoleEnum
+from app.domain.enums import PlatformRoleEnum, PlayerStatusEnum
 from app.domain.repositories import IUserRepository
-from app.infrastructure.models import UserModel, RefreshTokenModel
+from app.infrastructure.models import UserModel, RefreshTokenModel, CharacterModel, GameModel, GamePlayerModel
 from app.infrastructure.repositories.exception_handlers import handle_user_integrity_error
 from app.utils import Mapper
 
@@ -81,44 +80,67 @@ class UserRepository(IUserRepository):
         )
         await self.session.execute(stmt_revoke)
 
-    async def get_my_games(self, user_id: UUID) -> list[Game]:
+    async def get_my_games(self, user_id: UUID, offset: int, limit: int) -> list[Game]:
         stmt = (
-            select(UserModel)
-            .where(UserModel.id == user_id)
-            .options(selectinload(UserModel.games))
+            select(GameModel)
+            .where(GameModel.author_id == user_id)
+            .where(GameModel.deleted_at.is_(None))
+            .offset(offset)
+            .limit(limit)
         )
         result = await self.session.execute(stmt)
-        model = result.scalar_one_or_none()
+        return [Mapper.model_to_entity(m, Game) for m in result.scalars().all()]
 
-        if model is None:
-            return []
-
-        return [Mapper.model_to_entity(game, Game) for game in model.games]
-
-    async def get_participated_games(self, user_id: UUID) -> list[Game]:
+    async def count_my_games(self, user_id: UUID) -> int:
         stmt = (
-            select(UserModel)
-            .where(UserModel.id == user_id)
-            .options(selectinload(UserModel.participated_games))
+            select(func.count())
+            .select_from(GameModel)
+            .where(GameModel.author_id == user_id)
+            .where(GameModel.deleted_at.is_(None))
         )
         result = await self.session.execute(stmt)
-        model = result.scalar_one_or_none()
+        return result.scalar_one()
 
-        if model is None:
-            return []
-
-        return [Mapper.model_to_entity(game, Game) for game in model.participated_games]
-
-    async def get_my_characters(self, user_id: UUID) -> list[Character]:
+    async def get_participated_games(self, user_id: UUID, offset: int, limit: int) -> list[Game]:
         stmt = (
-            select(UserModel)
-            .where(UserModel.id == user_id)
-            .options(selectinload(UserModel.characters))
+            select(GameModel)
+            .join(GamePlayerModel, GamePlayerModel.game_id == GameModel.id)
+            .where(GamePlayerModel.user_id == user_id)
+            .where(GamePlayerModel.status == PlayerStatusEnum.ACCEPTED)
+            .where(GameModel.deleted_at.is_(None))
+            .offset(offset)
+            .limit(limit)
         )
         result = await self.session.execute(stmt)
-        model = result.scalar_one_or_none()
+        return [Mapper.model_to_entity(m, Game) for m in result.scalars().all()]
 
-        if model is None:
-            return []
+    async def count_participated_games(self, user_id: UUID) -> int:
+        stmt = (
+            select(func.count())
+            .select_from(GamePlayerModel)
+            .where(GamePlayerModel.user_id == user_id)
+            .where(GamePlayerModel.status == PlayerStatusEnum.ACCEPTED)
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar_one()
 
-        return [Mapper.model_to_entity(character, Character) for character in model.characters]
+    async def get_my_characters(self, user_id: UUID, offset: int, limit: int) -> list[Character]:
+        stmt = (
+            select(CharacterModel)
+            .where(CharacterModel.user_id == user_id)
+            .where(CharacterModel.deleted_at.is_(None))
+            .offset(offset)
+            .limit(limit)
+        )
+        result = await self.session.execute(stmt)
+        return [Mapper.model_to_entity(m, Character) for m in result.scalars().all()]
+
+    async def count_my_characters(self, user_id: UUID) -> int:
+        stmt = (
+            select(func.count())
+            .select_from(CharacterModel)
+            .where(CharacterModel.user_id == user_id)
+            .where(CharacterModel.deleted_at.is_(None))
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar_one()
