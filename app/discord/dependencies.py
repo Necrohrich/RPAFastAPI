@@ -2,11 +2,10 @@
 from contextlib import asynccontextmanager
 
 from app.infrastructure.db.database import UnitOfWork
-from app.infrastructure.repositories.auth_repositories.discord_repository import DiscordRepository
-from app.infrastructure.repositories.auth_repositories.token_repository import TokenRepository
-from app.infrastructure.repositories.auth_repositories.user_repository import UserRepository
-from app.services.auth_service import AuthService
-from app.services.user_service import UserService
+from app.infrastructure.repositories import DiscordRepository, TokenRepository, UserRepository, GameSystemRepository, \
+    CharacterRepository, GameRepository
+from app.services import AuthService, UserService, GameSystemService, GameService, CharacterService
+
 
 @asynccontextmanager
 async def auth_service_ctx():
@@ -21,3 +20,27 @@ async def user_service_ctx():
         user_repo = UserRepository(uow.session)
         discord_repo = DiscordRepository(uow.session)
         yield UserService(user_repo, discord_repo)
+
+@asynccontextmanager
+async def character_service_ctx():
+    async with UnitOfWork() as uow:
+        character_repo = CharacterRepository(uow.session)
+        game_system_repo = GameSystemRepository(uow.session)
+        user_repo = UserRepository(uow.session)
+        game_repo = GameRepository(uow.session)
+        yield CharacterService(character_repo, game_system_repo, user_repo, game_repo)
+
+@asynccontextmanager
+async def game_service_ctx():
+    async with UnitOfWork() as uow:
+        game_repo = GameRepository(uow.session)
+        character_repo = CharacterRepository(uow.session)
+        game_system_repo = GameSystemRepository(uow.session)
+        user_repo = UserRepository(uow.session)
+        yield GameService(game_repo, character_repo, game_system_repo, user_repo)
+
+@asynccontextmanager
+async def game_system_service_ctx():
+    async with UnitOfWork() as uow:
+        game_system_repo = GameSystemRepository(uow.session)
+        yield GameSystemService(game_system_repo)

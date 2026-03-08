@@ -1,8 +1,7 @@
 #app/discord/loader.py
 import logging
 
-from app.discord.views.auth_view import AuthView
-from app.discord.views.profile_view import ProfileView
+from app.discord.views import AuthView, ProfileView
 
 logger = logging.getLogger(__name__)
 
