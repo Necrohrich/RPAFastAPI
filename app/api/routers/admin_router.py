@@ -6,10 +6,11 @@ from uuid import UUID
 from app.api.security import require_superadmin, require_support, require_moderator
 from app.domain.enums.platform_role_enum import PlatformRoleEnum
 from app.dto import GameSystemResponseDTO, CreateGameSystemDTO, PaginatedResponseDTO, UpdateGameSystemDTO
-from app.services import GameSystemService, CharacterService
+from app.services import GameSystemService, CharacterService, GameService
 from app.services.auth_service import AuthService
 from app.services.user_service import UserService
-from app.api.dependencies import get_user_service, get_auth_service, get_game_system_service, get_character_service
+from app.api.dependencies import get_user_service, get_auth_service, get_game_system_service, get_character_service, \
+    get_game_service
 from app.dto.auth_dtos import UserDTO
 
 router = APIRouter(
@@ -154,3 +155,30 @@ async def delete_character(
         service: CharacterService = Depends(get_character_service),
 ):
     await service.delete(character_id)
+
+# ────────────────────────────────────────────────────────────
+# Games
+# ────────────────────────────────────────────────────────────
+
+@router.post(
+    "/games/{game_id}/restore",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_moderator)]
+)
+async def restore_game(
+        game_id: UUID,
+        service: GameService = Depends(get_game_service),
+):
+    await service.restore(game_id)
+
+
+@router.delete(
+    "/games/{game_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_superadmin)]
+)
+async def delete_game(
+        game_id: UUID,
+        service: GameService = Depends(get_game_service),
+):
+    await service.delete(game_id)

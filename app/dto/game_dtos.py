@@ -19,7 +19,6 @@ class CreateGameDTO(BaseModel):
 class UpdateGameDTO(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    id: UUID
     name: Optional[str] = None
     game_system_id: Optional[UUID] = None
     gm_id: Optional[int] = None

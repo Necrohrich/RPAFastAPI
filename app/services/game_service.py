@@ -109,11 +109,11 @@ class GameService:
             total_pages=(total + page_size - 1) // page_size
         )
 
-    async def update(self, dto: UpdateGameDTO, requester_id: UUID) -> GameResponseDTO:
+    async def update(self, game_id: UUID, dto: UpdateGameDTO, requester_id: UUID) -> GameResponseDTO:
         if dto.name is not None:
             GameValidator.validate_name(dto.name)
         GameValidator.validate_discord_id(dto.gm_id, dto.discord_role_id, dto.discord_main_channel_id)
-        game = await self.repo.get_by_id(dto.id)
+        game = await self.repo.get_by_id(game_id)
         if not game:
             raise GameNotFoundException()
         if game.author_id != requester_id:
