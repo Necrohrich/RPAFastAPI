@@ -9,7 +9,8 @@ from app.discord.embeds.build_game_systems_embed import build_game_systems_embed
 from app.discord.policies import require_role
 from app.discord.views import PaginationView
 from app.domain.policies import PlatformPolicies
-from app.dto import CreateGameSystemDTO
+from app.dto import CreateGameSystemDTO, UpdateGameSystemDTO
+
 
 class GameCog(commands.Cog):
     def __init__(self, bot):
@@ -59,3 +60,35 @@ class GameCog(commands.Cog):
             result = await game_system_service.get_by_id(game_system_id)
         embed = build_game_system_embed(result)
         await inter.send(embed=embed, ephemeral=True)
+
+    @game_system.sub_command(name="update", description="Обновить игровую систему [SUPERADMIN]")
+    @require_role(PlatformPolicies.require_superadmin)
+    async def update(
+            self,
+            inter: ApplicationCommandInteraction,
+            game_system_id: str,
+            name: str,
+            description: str = None
+    ) -> None:
+        await inter.response.defer(ephemeral=True)
+
+        dto = UpdateGameSystemDTO(
+            name=name,
+            description=description
+        )
+        async with game_system_service_ctx() as game_system_service:
+            await game_system_service.update(game_system_id=game_system_id, dto=dto)
+        await inter.send("✅ Игровая система успешно обновлена", ephemeral=True)
+
+    @game_system.sub_command(name="delete", description="Удалить игровую систему [SUPERADMIN]")
+    @require_role(PlatformPolicies.require_superadmin)
+    async def delete(
+            self,
+            inter: ApplicationCommandInteraction,
+            game_system_id: str
+    ) -> None:
+        await inter.response.defer(ephemeral=True)
+
+        async with game_system_service_ctx() as game_system_service:
+            await game_system_service.delete(game_system_id)
+        await inter.send("✅ Игровая система удалена", ephemeral=True)

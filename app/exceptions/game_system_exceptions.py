@@ -11,3 +11,7 @@ class GameSystemNotFoundException(GameSystemError):
 class GameSystemAlreadyExistsException(GameSystemError):
     """Игровая система с таким названием уже существует"""
     pass
+
+class GameSystemHasDependenciesException(GameSystemError):
+    """Игровая система используется персонажами или играми"""
+    pass

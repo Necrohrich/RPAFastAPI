@@ -19,6 +19,7 @@ __all__ = [
     "GameSystemError",
     "GameSystemNotFoundException",
     "GameSystemAlreadyExistsException",
+    "GameSystemHasDependenciesException",
     "CharacterError",
     "CharacterNotFoundException",
     "CharacterAlreadyExistsException",
@@ -40,6 +41,6 @@ from app.exceptions.common_exceptions import PermissionDenied, NotFoundError, Ap
 from app.exceptions.game_exceptions import NotGameAuthorException, PlayerNotFoundException, \
     PlayerAlreadyInGameException, GameAlreadyExistsException, GameNotFoundException, GameError
 from app.exceptions.game_system_exceptions import GameSystemAlreadyExistsException, GameSystemNotFoundException, \
-    GameSystemError
+    GameSystemError, GameSystemHasDependenciesException
 from app.exceptions.user_exceptions import PasswordWrongError, PasswordSameError, DiscordSameAsPrimary, \
     DiscordAlreadyLinked, EmailSameAsPrimary, EmailAlreadyExists, LoginAlreadyExists, UserError

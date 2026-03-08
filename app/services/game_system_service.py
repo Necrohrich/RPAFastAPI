@@ -4,7 +4,8 @@ from uuid import UUID
 from app.domain.entities import GameSystem
 from app.domain.repositories import IGameSystemRepository
 from app.dto import CreateGameSystemDTO, GameSystemResponseDTO, UpdateGameSystemDTO, PaginatedResponseDTO
-from app.exceptions import GameSystemNotFoundException, GameSystemAlreadyExistsException
+from app.exceptions import GameSystemNotFoundException, GameSystemAlreadyExistsException, \
+    GameSystemHasDependenciesException
 from app.utils import Mapper
 from app.validators import GameSystemValidator
 
@@ -92,5 +93,7 @@ class GameSystemService:
     async def delete(self, game_system_id: UUID) -> None:
         if not await self.repo.get_by_id(game_system_id):
             raise GameSystemNotFoundException()
+        if await self.repo.has_dependencies(game_system_id):
+            raise GameSystemHasDependenciesException()
         await self.repo.delete(game_system_id)
 

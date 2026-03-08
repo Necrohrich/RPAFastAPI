@@ -7,7 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from app.exceptions import CharacterPermissionException, CharacterGameSystemMismatchException, \
     CharacterAlreadyExistsException, CharacterNotFoundException, NotGameAuthorException, PlayerNotFoundException, \
     PlayerAlreadyInGameException, GameAlreadyExistsException, GameNotFoundException, GameSystemAlreadyExistsException, \
-    GameSystemNotFoundException
+    GameSystemNotFoundException, GameSystemHasDependenciesException
 from app.exceptions.auth_exceptions import InvalidCredentials, InvalidToken, TokenExpired
 from app.exceptions.common_exceptions import NotFoundError, ValidationError, PermissionDenied
 from app.exceptions.user_exceptions import (
@@ -37,6 +37,7 @@ EXCEPTION_MAP: dict[type[Exception], tuple[int, str]] = {
     # Game system
     GameSystemNotFoundException:        (status.HTTP_404_NOT_FOUND,     "Game system not found"),
     GameSystemAlreadyExistsException:   (status.HTTP_409_CONFLICT,      "Game system already exists"),
+    GameSystemHasDependenciesException: (status.HTTP_409_CONFLICT,      "Game system has dependencies"),
 
     # Game
     GameNotFoundException:              (status.HTTP_404_NOT_FOUND,     "Game not found"),

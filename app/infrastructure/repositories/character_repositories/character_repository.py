@@ -173,3 +173,4 @@ class CharacterRepository(ICharacterRepository):
     async def delete(self, character_id: UUID) -> None:
         stmt = delete(CharacterModel).where(CharacterModel.id == character_id)
         await self.session.execute(stmt)
+

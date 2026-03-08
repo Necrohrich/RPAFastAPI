@@ -18,6 +18,7 @@ class IGameSystemRepository(ABC):
             * count_all - возвращает число игровых систем
             * update — обновляет поля игровой системы и возвращает обновлённую сущность
             * delete — физически удаляет игровую систему по UUID
+            * has_dependencies - указывает есть ли зависимости у игровой системы
     """
 
     @abstractmethod
@@ -40,3 +41,6 @@ class IGameSystemRepository(ABC):
 
     @abstractmethod
     async def delete(self, game_system_id: UUID) -> None: ...
+
+    @abstractmethod
+    async def has_dependencies(self, game_system_id: UUID) -> bool: ...

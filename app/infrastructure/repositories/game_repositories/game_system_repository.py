@@ -2,13 +2,13 @@
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import select, update, delete, func
+from sqlalchemy import select, update, delete, func, exists
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.entities import GameSystem
 from app.domain.repositories import IGameSystemRepository
-from app.infrastructure.models import GameSystemModel
+from app.infrastructure.models import GameSystemModel, CharacterModel
 from app.infrastructure.repositories.exception_handlers import handle_user_integrity_error
 from app.utils import Mapper
 
@@ -71,3 +71,8 @@ class GameSystemRepository(IGameSystemRepository):
             GameSystemModel.id == game_system_id
         )
         await self.session.execute(stmt)
+
+    async def has_dependencies(self, game_system_id: UUID) -> bool:
+        stmt = select(exists().where(CharacterModel.game_system_id == game_system_id))
+        result = await self.session.execute(stmt)
+        return result.scalar()

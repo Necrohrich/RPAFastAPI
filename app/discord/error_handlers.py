@@ -124,6 +124,11 @@ _ERROR_MAP: dict[type[Exception], tuple[str, str, disnake.Color]] = {
         disnake.Color.red(),
     ),
     # ── Game system exceptions ───────────────────────────────
+    GameSystemHasDependenciesException: (
+        "Невозможно удалить",
+        "Игровая система используется персонажами или играми. Сначала удалите связанные объекты.",
+        disnake.Color.orange(),
+    ),
     GameSystemNotFoundException: (
         "Игровая система не найдена",
         "Игровая система с указанным ID или именем не найдена.",
