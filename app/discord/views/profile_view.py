@@ -2,6 +2,7 @@
 from disnake import ButtonStyle, MessageInteraction, Embed
 from disnake.ui import button, Button
 
+from app.core.config import settings
 from app.discord.dependencies import user_service_ctx
 from app.discord.embeds.build_my_characters_embed import build_my_characters_embed
 from app.discord.embeds.build_my_games_embed import build_my_games_embed
@@ -12,8 +13,6 @@ from app.discord.modals.attach_email_modal import AttachEmailModal
 from app.discord.modals.change_password_modal import ChangePasswordModal
 from app.discord.views.base_view import BaseView
 from app.discord.views.pagination_view import PaginationView
-
-PAGE_SIZE = 5
 
 class ProfileView(BaseView):
     """
@@ -52,7 +51,7 @@ class ProfileView(BaseView):
         async def fetch_page(page: int) -> tuple[Embed, int]:
             async with user_service_ctx() as user_service:
                 user = await user_service.get_user_by_discord(discord_id)
-                result = await user_service.get_my_games(user.id, page=page, page_size=PAGE_SIZE)
+                result = await user_service.get_my_games(user.id, page=page, page_size=settings.DISCORD_PAGE_SIZE)
             return build_my_games_embed(result, page), result.total_pages
 
         embed, total_pages = await fetch_page(1)
@@ -67,7 +66,7 @@ class ProfileView(BaseView):
         async def fetch_page(page: int) -> tuple[Embed, int]:
             async with user_service_ctx() as user_service:
                 user = await user_service.get_user_by_discord(discord_id)
-                result = await user_service.get_participated_games(user.id, page=page, page_size=PAGE_SIZE)
+                result = await user_service.get_participated_games(user.id, page=page, page_size=settings.DISCORD_PAGE_SIZE)
             return build_participated_games_embed(result, page), result.total_pages
 
         embed, total_pages = await fetch_page(1)
@@ -82,7 +81,7 @@ class ProfileView(BaseView):
         async def fetch_page(page: int) -> tuple[Embed, int]:
             async with user_service_ctx() as user_service:
                 user = await user_service.get_user_by_discord(discord_id)
-                result = await user_service.get_my_characters(user.id, page=page, page_size=PAGE_SIZE)
+                result = await user_service.get_my_characters(user.id, page=page, page_size=settings.DISCORD_PAGE_SIZE)
             return build_my_characters_embed(result, page), result.total_pages
 
         embed, total_pages = await fetch_page(1)

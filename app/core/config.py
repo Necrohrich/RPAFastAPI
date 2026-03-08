@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int
     DISCORD_TOKEN: str
     DATABASE_URL: str
+    DISCORD_PAGE_SIZE: int
 
     model_config = SettingsConfigDict(
         env_file=BASE_DIR / ".env",

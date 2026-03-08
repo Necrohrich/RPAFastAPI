@@ -24,7 +24,7 @@ class UserCog(commands.Cog):
     @commands.slash_command(name="user", description="Команды для пользователей")
     async def user(self, inter: ApplicationCommandInteraction): ...
 
-    @user.sub_command(name="update_role", description="Обновить роль пользователя")
+    @user.sub_command(name="update_role", description="Обновить роль пользователя [SUPERADMIN]")
     @require_role(PlatformPolicies.require_superadmin)
     async def update_role(
             self,
@@ -38,7 +38,7 @@ class UserCog(commands.Cog):
 
         await inter.send(f"✅ Роль пользователя успешно изменена на {role}", ephemeral=True)
 
-    @user.sub_command(name="view", description="Увидеть профиль пользователя")
+    @user.sub_command(name="view", description="Увидеть профиль пользователя [SUPPORT]")
     @require_role(PlatformPolicies.require_support)
     async def view(
             self,

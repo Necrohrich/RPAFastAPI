@@ -12,7 +12,7 @@ class AuthCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.slash_command(name="auth", description="Показать систему Аутентификации")
+    @commands.slash_command(name="auth", description="Показать систему Аутентификации [SUPPORT]")
     @require_role(PlatformPolicies.require_support)
     async def auth_menu(
             self,
