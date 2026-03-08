@@ -120,6 +120,21 @@ class AuthService:
             refresh_token=refresh
         )
 
+    async def login_and_get_user(self, dto: LoginRequestDTO) -> tuple[AuthResponseDTO, UserDTO]:
+        user = await self.user_repo.get_by_email(dto.email)
+
+        if not user or not PasswordHasher.verify(dto.password, user.password_hash):
+            raise InvalidCredentials()
+
+        access, refresh = await self._create_tokens_for_user(
+            user,
+            device_info=dto.device_info or ""
+        )
+
+        auth_response = AuthResponseDTO(access_token=access, refresh_token=refresh)
+        user_dto = Mapper.entity_to_dto(user, UserDTO)
+        return auth_response, user_dto
+
     async def refresh(self, dto: RefreshRequestDTO) -> AuthResponseDTO:
 
         hashed = RefreshTokenProvider.hash(dto.refresh_token)
