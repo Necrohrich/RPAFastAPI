@@ -174,7 +174,13 @@ class UserService:
         items = await self.user_repo.get_my_characters(user_id, offset=offset, limit=page_size)
         total = await self.user_repo.count_my_characters(user_id)
         return PaginatedResponseDTO(
-            items=[Mapper.entity_to_dto(item, CharacterResponseDTO) for item in items],
+            items=[
+                Mapper.entity_to_dto(item, CharacterResponseDTO).model_copy(update={
+                    "game_system_name": item.game_system.name if item.game_system else None,
+                    "game_name": item.game.name if item.game else None,
+                })
+                for item in items
+            ],
             total=total,
             page=page,
             page_size=page_size,

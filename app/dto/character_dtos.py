@@ -29,7 +29,9 @@ class CharacterResponseDTO(BaseModel):
     id: UUID
     name: str
     game_system_id: Optional[UUID] = None
+    game_system_name: Optional[str] = None
     game_id: Optional[UUID] = None
+    game_name: Optional[str] = None
     avatar: Optional[str] = None
     sheet_data: Optional[dict] = None
 

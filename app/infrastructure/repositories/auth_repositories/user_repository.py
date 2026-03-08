@@ -6,8 +6,9 @@ from uuid import UUID
 from sqlalchemy import select, update, func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 
-from app.domain.entities import User, Game, Character
+from app.domain.entities import User, Game, Character, GameSystem
 from app.domain.enums import PlatformRoleEnum, PlayerStatusEnum
 from app.domain.repositories import IUserRepository
 from app.infrastructure.models import UserModel, RefreshTokenModel, CharacterModel, GameModel, GamePlayerModel
@@ -127,13 +128,26 @@ class UserRepository(IUserRepository):
     async def get_my_characters(self, user_id: UUID, offset: int, limit: int) -> list[Character]:
         stmt = (
             select(CharacterModel)
+            .options(
+                joinedload(CharacterModel.game_system),
+                joinedload(CharacterModel.game),
+            )
             .where(CharacterModel.user_id == user_id)
             .where(CharacterModel.deleted_at.is_(None))
             .offset(offset)
             .limit(limit)
         )
         result = await self.session.execute(stmt)
-        return [Mapper.model_to_entity(m, Character) for m in result.scalars().all()]
+        return [
+            Mapper.model_to_entity_with_relations(
+                m, Character,
+                {
+                    "game_system": (m.game_system, GameSystem),
+                    "game": (m.game, Game),
+                }
+            )
+            for m in result.scalars().all()
+        ]
 
     async def count_my_characters(self, user_id: UUID) -> int:
         stmt = (
