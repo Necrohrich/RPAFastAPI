@@ -17,7 +17,7 @@ class UpdateGameSystemDTO(BaseModel):
     description: Optional[str] = None
 
 class GameSystemResponseDTO(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     id: UUID
     name: str

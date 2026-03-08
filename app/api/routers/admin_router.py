@@ -3,13 +3,13 @@
 from fastapi import APIRouter, Depends, status
 from uuid import UUID
 
-from app.api.security import require_superadmin, require_support
+from app.api.security import require_superadmin, require_support, require_moderator
 from app.domain.enums.platform_role_enum import PlatformRoleEnum
 from app.dto import GameSystemResponseDTO, CreateGameSystemDTO, PaginatedResponseDTO, UpdateGameSystemDTO
-from app.services import GameSystemService
+from app.services import GameSystemService, CharacterService
 from app.services.auth_service import AuthService
 from app.services.user_service import UserService
-from app.api.dependencies import get_user_service, get_auth_service, get_game_system_service
+from app.api.dependencies import get_user_service, get_auth_service, get_game_system_service, get_character_service
 from app.dto.auth_dtos import UserDTO
 
 router = APIRouter(
@@ -127,3 +127,30 @@ async def delete_game_system(
         service: GameSystemService = Depends(get_game_system_service),
 ):
     await service.delete(game_system_id)
+
+# ────────────────────────────────────────────────────────────
+# Characters
+# ────────────────────────────────────────────────────────────
+
+@router.post(
+    "/characters/{character_id}/restore",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_moderator)]
+)
+async def restore_character(
+        character_id: UUID,
+        service: CharacterService = Depends(get_character_service),
+):
+    await service.restore(character_id)
+
+
+@router.delete(
+    "/characters/{character_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_superadmin)]
+)
+async def delete_character(
+        character_id: UUID,
+        service: CharacterService = Depends(get_character_service),
+):
+    await service.delete(character_id)

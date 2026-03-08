@@ -27,7 +27,7 @@ class UpdateGameDTO(BaseModel):
     discord_main_channel_id: Optional[int] = None
 
 class GameResponseDTO(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     id: UUID
     name: str
@@ -38,7 +38,7 @@ class GameResponseDTO(BaseModel):
     game_system_id: UUID
 
 class GameDetailedResponseDTO(BaseModel):
-    model_config = ConfigDict(extra="forbid", from_attributes=True)
+    model_config = ConfigDict(extra="ignore", from_attributes=True)
 
     id: UUID
     name: str
@@ -49,7 +49,7 @@ class GameDetailedResponseDTO(BaseModel):
     game_system: GameSystemResponseDTO
 
 class GamePlayerResponseDTO(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     game_id: UUID
     user_id: UUID

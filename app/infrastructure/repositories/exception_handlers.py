@@ -1,5 +1,7 @@
 # app/infrastructure/repositories/exception_handlers.py
 from sqlalchemy.exc import IntegrityError
+
+from app.exceptions import CharacterAlreadyExistsException, GameAlreadyExistsException, PlayerAlreadyInGameException
 from app.exceptions.user_exceptions import LoginAlreadyExists, EmailAlreadyExists, DiscordAlreadyLinked
 
 def handle_user_integrity_error(e: IntegrityError) -> None:
@@ -19,5 +21,16 @@ def handle_user_integrity_error(e: IntegrityError) -> None:
         raise DiscordAlreadyLinked("Этот Discord аккаунт уже привязан как дополнительный")
     if "uq_users_discord_id_global" in error_str:
         raise DiscordAlreadyLinked("Такая комбинация Discord ID уже существует")
+    # Character
+    if "uq_character_name_game" in error_str:
+        raise CharacterAlreadyExistsException("Персонаж с таким именем уже существует в этой игре")
+
+    # Game
+    if "uq_game_name_author" in error_str:
+        raise GameAlreadyExistsException("Игра с таким названием уже существует")
+
+    # Game players
+    if "game_players" in error_str:
+        raise PlayerAlreadyInGameException("Игрок уже является участником этой игры")
 
     raise e

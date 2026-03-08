@@ -104,11 +104,11 @@ class CharacterService:
             total_pages=(total + page_size - 1) // page_size
         )
 
-    async def update(self, dto: UpdateCharacterDTO, requester_id: UUID) -> CharacterResponseDTO:
+    async def update(self, character_id: UUID, dto: UpdateCharacterDTO, requester_id: UUID) -> CharacterResponseDTO:
         if dto.name is not None:
             CharacterValidator.validate_name(dto.name)
 
-        character = await self.repo.get_by_id(dto.id)
+        character = await self.repo.get_by_id(character_id)
         if not character:
             raise CharacterNotFoundException()
 

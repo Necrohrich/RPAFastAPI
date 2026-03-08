@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from sqlalchemy.exc import IntegrityError
 from starlette.staticfiles import StaticFiles
 
-from app.api.routers import auth_router, user_router, admin_router
+from app.api.routers import auth_router, user_router, admin_router, character_router
 from app.api.exception_handlers import (
     integrity_error_handler, validation_error_handler, EXCEPTION_MAP,
     app_exception_handler,
@@ -42,6 +42,7 @@ async def root():
 app.include_router(auth_router.router)
 app.include_router(user_router.router)
 app.include_router(admin_router.router)
+app.include_router(character_router.router)
 
 for exc_class in EXCEPTION_MAP:
     app.add_exception_handler(exc_class, app_exception_handler)

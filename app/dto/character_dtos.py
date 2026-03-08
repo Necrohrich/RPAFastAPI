@@ -12,7 +12,6 @@ class CreateCharacterDTO(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: str
-    user_id: UUID
     game_system_id: Optional[UUID] = None
     avatar: Optional[str] = None
     sheet_data: dict = {}
@@ -20,13 +19,12 @@ class CreateCharacterDTO(BaseModel):
 class UpdateCharacterDTO(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    id: UUID
     name: Optional[str] = None
     avatar: Optional[str] = None
     sheet_data: Optional[dict] = None
 
 class CharacterResponseDTO(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     id: UUID
     name: str
@@ -36,7 +34,7 @@ class CharacterResponseDTO(BaseModel):
     sheet_data: Optional[dict] = None
 
 class CharacterDetailResponseDTO(BaseModel):
-    model_config = ConfigDict(extra="forbid", from_attributes=True)
+    model_config = ConfigDict(extra="ignore", from_attributes=True)
 
     id: UUID
     name: str

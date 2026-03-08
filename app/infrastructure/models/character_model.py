@@ -36,7 +36,7 @@ class CharacterModel(BaseModel):
         nullable=True,
         index=True
     )
-    avatar: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, unique=True)
+    avatar: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     game_system_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey('game_systems.id'),

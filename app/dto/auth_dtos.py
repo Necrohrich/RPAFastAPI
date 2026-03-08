@@ -15,7 +15,7 @@ class RegisterRequestDTO(BaseModel):
     discord_id: Optional[int] = None
 
 class AuthResponseDTO(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     access_token: str
     refresh_token: str
@@ -35,7 +35,7 @@ class RefreshRequestDTO(BaseModel):
     device_info: Optional[str] = None
 
 class UserDTO(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     id: UUID
     login: str

@@ -57,7 +57,15 @@ class CharacterRepository(ICharacterRepository):
         model = result.unique().scalar_one_or_none()
         if not model:
             return None
-        return Mapper.model_to_entity(model, Character)
+        return Mapper.model_to_entity_with_relations(
+            model,
+            Character,
+            relations={
+                "author": (model.author, User),
+                "game": (model.game, Game),
+                "game_system": (model.game_system, GameSystem),
+            }
+        )
 
     async def get_by_user_id(self, user_id: UUID, offset: int, limit: int) -> list[Character]:
         stmt = self._active(
@@ -139,19 +147,8 @@ class CharacterRepository(ICharacterRepository):
             )
             .execution_options(synchronize_session="fetch")
         )
-        result = await self.session.execute(stmt)
-        model = result.unique().scalar_one_or_none()
-        if not model:
-            return None
-        return Mapper.model_to_entity_with_relations(
-            model,
-            Character,
-            relations={
-                "author": (model.author, User),
-                "game": (model.game, Game),
-                "game_system": (model.game_system, GameSystem),
-            }
-        )
+        await self.session.execute(stmt)
+        return character
 
     async def soft_delete(self, character_id: UUID) -> None:
         stmt = (
