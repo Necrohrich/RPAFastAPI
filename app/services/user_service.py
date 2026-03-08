@@ -68,7 +68,8 @@ class UserService:
         )
 
     async def update_role(self, user_id: UUID, role: PlatformRoleEnum):
-        RoleValidator.validate_role(role)
+        if role is not None:
+            RoleValidator.validate_role(role)
 
         user = await self.user_repo.get_by_id(user_id)
 
