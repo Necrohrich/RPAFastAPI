@@ -56,8 +56,9 @@ class CharacterService:
             if not await self.game_system_repo.get_by_id(dto.game_system_id):
                 raise GameSystemNotFoundException()
 
-        character = Mapper.dto_to_entity(dto, Character)
-        character.user_id = author_id
+        data = dto.model_dump()
+        data["user_id"] = author_id
+        character = Mapper.dto_to_entity(data, Character)
         response = await self.repo.create(character)
         return Mapper.entity_to_dto(response, CharacterResponseDTO)
 

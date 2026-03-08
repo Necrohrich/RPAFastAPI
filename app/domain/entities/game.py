@@ -3,6 +3,8 @@
 from dataclasses import dataclass
 from uuid import UUID
 
+from app.domain.entities.game_system import GameSystem
+from app.domain.entities.user import User
 from app.domain.entities.base_entity import BaseEntity
 
 @dataclass(kw_only=True)
@@ -24,3 +26,6 @@ class Game(BaseEntity):
     discord_role_id: int | None = None
     discord_main_channel_id: int | None = None
     game_system_id: UUID | None = None
+    # Relations — заполняются только в with_relations запросах
+    author: User | None = None
+    game_system: GameSystem | None = None

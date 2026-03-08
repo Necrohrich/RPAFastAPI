@@ -89,6 +89,41 @@ class CharacterRepository(ICharacterRepository):
         result = await self.session.execute(stmt)
         return result.scalar_one()
 
+    async def get_by_id_and_game_id(self, character_id: UUID, game_id: UUID) -> Optional[Character]:
+        stmt = self._active(
+            select(CharacterModel)
+            .where(CharacterModel.id == character_id)
+            .where(CharacterModel.game_id == game_id)
+        )
+        result = await self.session.execute(stmt)
+        model = result.scalar_one_or_none()
+        if not model:
+            return None
+        return Mapper.model_to_entity(model, Character)
+
+    async def attach_to_game(self, character_id: UUID, game_id: UUID) -> Character:
+        stmt = (
+            update(CharacterModel)
+            .where(CharacterModel.id == character_id)
+            .where(CharacterModel.deleted_at.is_(None))
+            .values(game_id=game_id)
+            .execution_options(synchronize_session="fetch")
+            .returning(CharacterModel)
+        )
+        result = await self.session.execute(stmt)
+        model = result.scalar_one()
+        return Mapper.model_to_entity(model, Character)
+
+    async def detach_from_game(self, character_id: UUID) -> None:
+        stmt = (
+            update(CharacterModel)
+            .where(CharacterModel.id == character_id)
+            .where(CharacterModel.deleted_at.is_(None))
+            .values(game_id=None)
+            .execution_options(synchronize_session="fetch")
+        )
+        await self.session.execute(stmt)
+
     async def update(self, character: Character) -> Character:
         stmt = (
             update(CharacterModel)

@@ -7,7 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-from app.domain.entities import Game, GamePlayer
+from app.domain.entities import Game, GamePlayer, User, GameSystem
 from app.domain.enums import PlayerStatusEnum
 from app.domain.repositories import IGameRepository
 from app.infrastructure.models import GameModel, GamePlayerModel
@@ -57,15 +57,41 @@ class GameRepository(IGameRepository):
         model = result.unique().scalar_one_or_none()
         if not model:
             return None
-        return Mapper.model_to_entity(model, Game)
+        return Mapper.model_to_entity_with_relations(
+            model,
+            Game,
+            relations={
+                "author": (model.author, User),
+                "game_system": (model.game_system, GameSystem),
+            }
+        )
 
-    async def get_by_author_id(self, author_id: UUID) -> list[Game]:
+    async def get_by_author_id(self, author_id: UUID, offset: int, limit: int) -> list[Game]:
         stmt = self._active(
             select(GameModel).where(GameModel.author_id == author_id)
+        ).offset(offset).limit(limit)
+        result = await self.session.execute(stmt)
+        return [Mapper.model_to_entity(m, Game) for m in result.scalars().all()]
+
+    async def count_by_author_id(self, author_id: UUID) -> int:
+        stmt = self._active(
+            select(func.count()).select_from(GameModel)
+            .where(GameModel.author_id == author_id)
         )
         result = await self.session.execute(stmt)
-        models = result.scalars().all()
-        return [Mapper.model_to_entity(model, Game) for model in models]
+        return result.scalar_one()
+
+    async def get_by_name_and_author_id(self, author_id: UUID, name: str) -> Optional[Game]:
+        stmt = self._active(
+            select(GameModel)
+            .where(GameModel.author_id == author_id)
+            .where(GameModel.name == name),
+        )
+        result = await self.session.execute(stmt)
+        model = result.scalar_one_or_none()
+        if not model:
+            return None
+        return Mapper.model_to_entity(model, Game)
 
     async def update(self, game: Game) -> Game:
         stmt = (
@@ -111,13 +137,32 @@ class GameRepository(IGameRepository):
 
     # --- Игроки ---
 
-    async def get_players(self, game_id: UUID, status: Optional[PlayerStatusEnum] = None) -> list[GamePlayer]:
+    async def get_player(self, game_id: UUID, user_id: UUID) -> Optional[GamePlayer]:
+        stmt = select(GamePlayerModel).where(
+            GamePlayerModel.game_id == game_id,
+            GamePlayerModel.user_id == user_id,
+        )
+        result = await self.session.execute(stmt)
+        model = result.scalar_one_or_none()
+        if not model:
+            return None
+        return Mapper.model_to_entity(model, GamePlayer)
+
+    async def get_players(self, game_id: UUID, status: Optional[PlayerStatusEnum], offset: int, limit: int) -> list[
+        GamePlayer]:
         stmt = select(GamePlayerModel).where(GamePlayerModel.game_id == game_id)
         if status is not None:
             stmt = stmt.where(GamePlayerModel.status == status)
+        stmt = stmt.offset(offset).limit(limit)
         result = await self.session.execute(stmt)
-        models = result.scalars().all()
-        return [Mapper.model_to_entity(model, GamePlayer) for model in models]
+        return [Mapper.model_to_entity(m, GamePlayer) for m in result.scalars().all()]
+
+    async def count_players(self, game_id: UUID, status: Optional[PlayerStatusEnum] = None) -> int:
+        stmt = select(func.count()).select_from(GamePlayerModel).where(GamePlayerModel.game_id == game_id)
+        if status is not None:
+            stmt = stmt.where(GamePlayerModel.status == status)
+        result = await self.session.execute(stmt)
+        return result.scalar_one()
 
     async def add_player(self, game_player: GamePlayer) -> GamePlayer:
         model = Mapper.entity_to_model(game_player, GamePlayerModel)
