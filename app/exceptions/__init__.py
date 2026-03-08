@@ -32,9 +32,14 @@ __all__ = [
     "NotGameAuthorException",
 ]
 
-from app.exceptions.auth_exceptions import *
-from app.exceptions.character_exceptions import *
-from app.exceptions.common_exceptions import *
-from app.exceptions.game_exceptions import *
-from app.exceptions.game_system_exceptions import *
-from app.exceptions.user_exceptions import *
+
+from app.exceptions.auth_exceptions import TokenExpired, AuthError, InvalidToken, InvalidCredentials
+from app.exceptions.character_exceptions import CharacterPermissionException, CharacterGameSystemMismatchException, \
+    CharacterAlreadyExistsException, CharacterNotFoundException, CharacterError
+from app.exceptions.common_exceptions import PermissionDenied, NotFoundError, ApplicationError, ValidationError
+from app.exceptions.game_exceptions import NotGameAuthorException, PlayerNotFoundException, \
+    PlayerAlreadyInGameException, GameAlreadyExistsException, GameNotFoundException, GameError
+from app.exceptions.game_system_exceptions import GameSystemAlreadyExistsException, GameSystemNotFoundException, \
+    GameSystemError
+from app.exceptions.user_exceptions import PasswordWrongError, PasswordSameError, DiscordSameAsPrimary, \
+    DiscordAlreadyLinked, EmailSameAsPrimary, EmailAlreadyExists, LoginAlreadyExists, UserError

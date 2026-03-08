@@ -4,15 +4,12 @@ import logging
 import disnake
 from disnake.ext import commands
 from pydantic import ValidationError as PydanticValidationError
-from app.exceptions.auth_exceptions import AuthError, InvalidCredentials, InvalidToken, TokenExpired
-from app.exceptions.common_exceptions import ApplicationError, NotFoundError, ValidationError, PermissionDenied
-from app.exceptions.user_exceptions import LoginAlreadyExists, EmailAlreadyExists, DiscordAlreadyLinked, \
-    PasswordSameError, PasswordWrongError, DiscordSameAsPrimary, EmailSameAsPrimary
+from app.exceptions import *
 
 logger = logging.getLogger(__name__)
 
 _ERROR_MAP: dict[type[Exception], tuple[str, str, disnake.Color]] = {
-    # User exceptions
+    # ── User exceptions ──────────────────────────────────────
     EmailAlreadyExists: (
         "Email уже занят",
         "Пользователь с таким email уже зарегистрирован.",
@@ -33,7 +30,7 @@ _ERROR_MAP: dict[type[Exception], tuple[str, str, disnake.Color]] = {
         "Этот Discord аккаунт уже привязан к другому пользователю.",
         disnake.Color.orange(),
     ),
-    DiscordSameAsPrimary:(
+    DiscordSameAsPrimary: (
         "Совпадение Discord ID",
         "Secondary Discord ID совпадает с primary.",
         disnake.Color.orange(),
@@ -48,7 +45,7 @@ _ERROR_MAP: dict[type[Exception], tuple[str, str, disnake.Color]] = {
         "Старый пароль введён неверно.",
         disnake.Color.orange(),
     ),
-    # Auth exceptions
+    # ── Auth exceptions ──────────────────────────────────────
     InvalidCredentials: (
         "Неверные данные",
         "Логин или пароль указаны неверно.",
@@ -69,7 +66,80 @@ _ERROR_MAP: dict[type[Exception], tuple[str, str, disnake.Color]] = {
         "Произошла ошибка при аутентификации. Попробуйте позже.",
         disnake.Color.orange(),
     ),
-    # Common exceptions
+    # ── Character exceptions ─────────────────────────────────
+    CharacterNotFoundException: (
+        "Персонаж не найден",
+        "Персонаж с указанным ID не найден или был удалён.",
+        disnake.Color.yellow(),
+    ),
+    CharacterAlreadyExistsException: (
+        "Персонаж уже существует",
+        "Персонаж с таким именем уже существует в этой игре.",
+        disnake.Color.orange(),
+    ),
+    CharacterGameSystemMismatchException: (
+        "Несовместимая игровая система",
+        "Игровая система персонажа не совпадает с игровой системой игры.",
+        disnake.Color.orange(),
+    ),
+    CharacterPermissionException: (
+        "Нет доступа к персонажу",
+        "Вы не являетесь автором этого персонажа.",
+        disnake.Color.red(),
+    ),
+    CharacterError: (
+        "Ошибка персонажа",
+        "Произошла ошибка при работе с персонажем. Попробуйте позже.",
+        disnake.Color.red(),
+    ),
+    # ── Game exceptions ──────────────────────────────────────
+    GameNotFoundException: (
+        "Игра не найдена",
+        "Игра с указанным ID не найдена или была удалена.",
+        disnake.Color.yellow(),
+    ),
+    GameAlreadyExistsException: (
+        "Игра уже существует",
+        "Игра с таким названием уже существует у этого пользователя.",
+        disnake.Color.orange(),
+    ),
+    PlayerAlreadyInGameException: (
+        "Игрок уже в игре",
+        "Вы уже являетесь участником этой игры или ваша заявка на рассмотрении.",
+        disnake.Color.orange(),
+    ),
+    PlayerNotFoundException: (
+        "Игрок не найден",
+        "Игрок не найден в составе этой игры.",
+        disnake.Color.yellow(),
+    ),
+    NotGameAuthorException: (
+        "Нет прав",
+        "Это действие доступно только автору игры.",
+        disnake.Color.red(),
+    ),
+    GameError: (
+        "Ошибка игры",
+        "Произошла ошибка при работе с игрой. Попробуйте позже.",
+        disnake.Color.red(),
+    ),
+    # ── Game system exceptions ───────────────────────────────
+    GameSystemNotFoundException: (
+        "Игровая система не найдена",
+        "Игровая система с указанным ID или именем не найдена.",
+        disnake.Color.yellow(),
+    ),
+    GameSystemAlreadyExistsException: (
+        "Игровая система уже существует",
+        "Игровая система с таким названием уже существует.",
+        disnake.Color.orange(),
+    ),
+    GameSystemError: (
+        "Ошибка игровой системы",
+        "Произошла ошибка при работе с игровой системой. Попробуйте позже.",
+        disnake.Color.red(),
+    ),
+    # ── Common exceptions ────────────────────────────────────
     NotFoundError: (
         "Не найдено",
         "Запрошенный объект не найден.",
