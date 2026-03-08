@@ -72,6 +72,10 @@ class GameSystemService:
             total_pages=(total + page_size - 1) // page_size
         )
 
+    async def get_all_list(self) -> list[GameSystemResponseDTO]:
+        items = await self.repo.get_all(offset=0, limit=10000)
+        return [Mapper.entity_to_dto(item, GameSystemResponseDTO) for item in items]
+
     async def update(self, game_system_id: UUID, dto: UpdateGameSystemDTO) -> GameSystemResponseDTO:
         if dto.name is not None:
             GameSystemValidator.validate_name(dto.name)

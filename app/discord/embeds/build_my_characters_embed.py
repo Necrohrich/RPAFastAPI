@@ -14,6 +14,8 @@ def build_my_characters_embed(result: PaginatedResponseDTO[CharacterResponseDTO]
                 value_lines.append(f"⚙️ Система: {character.game_system_name} \n\u200b")
             if character.game_name:
                 value_lines.append(f"🎲 Игра: {character.game_name} \n\u200b")
+            if character.avatar:
+                value_lines.append(f"🖼️ Аватар: {character.avatar} \n\u200b")
 
             embed.add_field(
                 name=f"**{character.name}**",

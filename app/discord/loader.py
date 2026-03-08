@@ -2,7 +2,7 @@
 import logging
 
 from app.discord.cogs import AuthCog, UserCog, CharacterCog, GameCog
-from app.discord.views import AuthView, ProfileView
+from app.discord.views import AuthView, ProfileView, CharacterView
 
 logger = logging.getLogger(__name__)
 
@@ -16,3 +16,4 @@ def register_views(bot):
     logger.debug("Persistent views registered")
     bot.add_view(AuthView())
     bot.add_view(ProfileView())
+    bot.add_view(CharacterView())
