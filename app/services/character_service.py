@@ -93,7 +93,7 @@ class CharacterService:
         if not await self.user_repo.get_by_id(author_id):
             raise NotFoundError()
         offset = (page - 1) * page_size
-        items = await self.repo.get_by_user_id(user_id=author_id, offset=offset, limit=page_size)
+        items = await self.repo.get_all_by_user_id(user_id=author_id, offset=offset, limit=page_size)
         total = await self.repo.count_by_user_id(author_id)
 
         return PaginatedResponseDTO(
@@ -103,6 +103,15 @@ class CharacterService:
             page_size=page_size,
             total_pages=(total + page_size - 1) // page_size
         )
+
+    # Используется только в Дискорд
+    async def get_list_by_user_id(self, author_id: UUID, include_deleted: bool = False, only_deleted: bool = False) -> \
+    list[CharacterResponseDTO]:
+        if not await self.user_repo.get_by_id(author_id):
+            raise NotFoundError()
+        items = await self.repo.get_all_by_user_id(user_id=author_id, offset=0, limit=10000,
+                                                   include_deleted=include_deleted, only_deleted=only_deleted)
+        return [Mapper.entity_to_dto(item, CharacterResponseDTO) for item in items]
 
     async def update(self, character_id: UUID, dto: UpdateCharacterDTO, requester_id: UUID) -> CharacterResponseDTO:
         if dto.name is not None:
