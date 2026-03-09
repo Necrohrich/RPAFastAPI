@@ -186,3 +186,15 @@ class UserService:
             page_size=page_size,
             total_pages=(total + page_size - 1) // page_size
         )
+    # пока используется только в Дискорд
+    async def get_my_characters_list(self, user_id: UUID) -> list[CharacterResponseDTO]:
+        if not await self.user_repo.get_by_id(user_id):
+            raise NotFoundError()
+        items = await self.user_repo.get_my_characters(user_id, offset=0, limit=10000)
+        return [
+            Mapper.entity_to_dto(item, CharacterResponseDTO).model_copy(update={
+                "game_system_name": item.game_system.name if item.game_system else None,
+                "game_name": item.game.name if item.game else None,
+            })
+            for item in items
+        ]
