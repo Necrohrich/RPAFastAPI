@@ -20,6 +20,7 @@ class UpdateCharacterDTO(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: Optional[str] = None
+    game_system_id: Optional[UUID] = None
     avatar: Optional[str] = None
     sheet_data: Optional[dict] = None
 
