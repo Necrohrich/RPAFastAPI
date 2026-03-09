@@ -8,7 +8,7 @@ IMAGE_PATH = os.path.join(get_base_dir(), "images", "character_system_wallpaper.
 def build_character_embed() -> tuple[Embed, File]:
     file = File(IMAGE_PATH, filename="character_system_wallpaper.png")
 
-    embed = Embed(title="Character Create Menu", color=Color.from_rgb(1, 121, 111))
+    embed = Embed(title="Character Menu", color=Color.from_rgb(1, 121, 111))
     embed.description = (
         "Добро пожаловать в систему создания персонажа платформы RolePlayAsylum.\n"
         "- Используйте Create для создания нового персонажа.\n"
