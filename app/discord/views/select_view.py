@@ -25,6 +25,7 @@ class SelectView(BaseView):
         page: Начальная страница (по умолчанию 0).
         search: Начальный поисковый запрос (по умолчанию пустой).
         skippable: Указывает можно ли пропустить селект
+        modal_callback: Будет ли вызов модалки (для многошаговых wizard)
     """
 
     def __init__(
@@ -35,7 +36,8 @@ class SelectView(BaseView):
         callback: Callable[[disnake.MessageInteraction, str], Awaitable[None]],
         page: int = 0,
         search: str = "",
-        skippable: bool = False
+        skippable: bool = False,
+        modal_callback: bool = False
     ):
         super().__init__(timeout=180)
         self.all_items = items
@@ -45,6 +47,7 @@ class SelectView(BaseView):
         self.page = page
         self.search = search
         self.skippable = skippable
+        self.modal_callback = modal_callback
         self.rebuild()
 
     # ── helpers ─────────────────────────────────────────────
@@ -109,6 +112,8 @@ class SelectView(BaseView):
         if (selected := inter.values[0]) == "__empty__":
             await inter.response.defer()
             return
+        if not self.modal_callback:
+            await inter.response.defer(ephemeral=True)
         await self._callback(inter, selected)
 
     async def _on_prev(self, inter: disnake.MessageInteraction):
