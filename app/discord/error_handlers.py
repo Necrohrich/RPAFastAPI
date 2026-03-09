@@ -87,6 +87,11 @@ _ERROR_MAP: dict[type[Exception], tuple[str, str, disnake.Color]] = {
         "Вы не являетесь автором этого персонажа.",
         disnake.Color.red(),
     ),
+    CharacterGameSystemAlreadySetException: (
+        "Система уже привязана",
+        "Игровая система уже привязана к персонажу и не может быть изменена.",
+        disnake.Color.orange(),
+    ),
     CharacterError: (
         "Ошибка персонажа",
         "Произошла ошибка при работе с персонажем. Попробуйте позже.",
