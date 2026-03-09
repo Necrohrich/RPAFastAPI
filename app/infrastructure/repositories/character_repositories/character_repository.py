@@ -67,10 +67,14 @@ class CharacterRepository(ICharacterRepository):
             }
         )
 
-    async def get_by_user_id(self, user_id: UUID, offset: int, limit: int) -> list[Character]:
-        stmt = self._active(
-            select(CharacterModel).where(CharacterModel.user_id == user_id)
-        ).offset(offset).limit(limit)
+    async def get_all_by_user_id(self, user_id: UUID, offset: int, limit: int, include_deleted: bool = False,
+                                 only_deleted: bool = False) -> list[Character]:
+        stmt = select(CharacterModel).where(CharacterModel.user_id == user_id)
+        if only_deleted:
+            stmt = stmt.where(CharacterModel.deleted_at.isnot(None))
+        elif not include_deleted:
+            stmt = stmt.where(CharacterModel.deleted_at.is_(None))
+        stmt = stmt.offset(offset).limit(limit)
         result = await self.session.execute(stmt)
         return [Mapper.model_to_entity(m, Character) for m in result.scalars().all()]
 
