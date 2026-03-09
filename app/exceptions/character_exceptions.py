@@ -19,3 +19,7 @@ class CharacterGameSystemMismatchException(CharacterError):
 class CharacterPermissionException(CharacterError):
     """Отправитель запроса не является автором персонажа"""
     pass
+
+class CharacterGameSystemAlreadySetException(CharacterError):
+    """Игровая система уже привязана к персонажу и не может быть изменена"""
+    pass

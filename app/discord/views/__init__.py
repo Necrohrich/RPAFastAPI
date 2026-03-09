@@ -4,10 +4,12 @@ __all__=[
     "ProfileView",
     "PaginationView",
     "SelectView",
-    "CharacterView"
+    "CharacterView",
+    "CharacterUpdateView"
 ]
 
 from app.discord.views.base_view import BaseView
+from app.discord.views.character_update_view import CharacterUpdateView
 from app.discord.views.character_view import CharacterView
 from app.discord.views.pagination_view import PaginationView
 

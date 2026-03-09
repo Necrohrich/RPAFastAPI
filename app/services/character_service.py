@@ -6,7 +6,7 @@ from app.domain.repositories import ICharacterRepository, IGameSystemRepository,
 from app.dto import CreateCharacterDTO, CharacterResponseDTO, CharacterDetailResponseDTO, PaginatedResponseDTO, \
     UpdateCharacterDTO
 from app.exceptions import GameSystemNotFoundException, NotFoundError, CharacterNotFoundException, \
-    GameNotFoundException, CharacterPermissionException
+    GameNotFoundException, CharacterPermissionException, CharacterGameSystemAlreadySetException
 from app.utils import Mapper
 from app.validators import CharacterValidator
 
@@ -114,6 +114,13 @@ class CharacterService:
 
         if character.user_id != requester_id:
             raise CharacterPermissionException()
+
+        if dto.game_system_id is not None:
+            if character.game_system_id is not None:
+                raise CharacterGameSystemAlreadySetException()
+            if await self.game_system_repo.get_by_id(dto.game_system_id) is None:
+                raise GameSystemNotFoundException()
+            character.game_system_id = dto.game_system_id
 
         if dto.name is not None:
             character.name = dto.name

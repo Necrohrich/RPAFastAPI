@@ -25,6 +25,7 @@ __all__ = [
     "CharacterAlreadyExistsException",
     "CharacterGameSystemMismatchException",
     "CharacterPermissionException",
+    "CharacterGameSystemAlreadySetException",
     "GameError",
     "GameNotFoundException",
     "GameAlreadyExistsException",
@@ -36,7 +37,7 @@ __all__ = [
 
 from app.exceptions.auth_exceptions import TokenExpired, AuthError, InvalidToken, InvalidCredentials
 from app.exceptions.character_exceptions import CharacterPermissionException, CharacterGameSystemMismatchException, \
-    CharacterAlreadyExistsException, CharacterNotFoundException, CharacterError
+    CharacterAlreadyExistsException, CharacterNotFoundException, CharacterError, CharacterGameSystemAlreadySetException
 from app.exceptions.common_exceptions import PermissionDenied, NotFoundError, ApplicationError, ValidationError
 from app.exceptions.game_exceptions import NotGameAuthorException, PlayerNotFoundException, \
     PlayerAlreadyInGameException, GameAlreadyExistsException, GameNotFoundException, GameError
