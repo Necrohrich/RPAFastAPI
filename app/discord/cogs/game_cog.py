@@ -4,10 +4,11 @@ from disnake.ext import commands
 
 from app.core.config import settings
 from app.discord.dependencies import game_system_service_ctx
+from app.discord.embeds.build_game_menu_embed import build_game_menu_embed
 from app.discord.embeds.build_game_system_embed import build_game_system_embed
 from app.discord.embeds.build_game_systems_embed import build_game_systems_embed
 from app.discord.policies import require_role
-from app.discord.views import PaginationView
+from app.discord.views import PaginationView, GameMenuView
 from app.domain.policies import PlatformPolicies
 from app.dto import CreateGameSystemDTO, UpdateGameSystemDTO
 
@@ -92,3 +93,17 @@ class GameCog(commands.Cog):
         async with game_system_service_ctx() as game_system_service:
             await game_system_service.delete(game_system_id)
         await inter.send("✅ Игровая система удалена", ephemeral=True)
+
+    #--------------------------
+    #GAME
+    #--------------------------
+
+    @commands.slash_command(name="game", description="Команды для игр")
+    async def game(self, inter: ApplicationCommandInteraction): ...
+
+    @game.sub_command(name="menu", description="Посмотреть меню игры [SUPPORT]")
+    @require_role(PlatformPolicies.require_support)
+    async def menu(self, inter: ApplicationCommandInteraction) -> None:
+        embed, file = build_game_menu_embed()
+
+        await inter.send(embed=embed, file=file, view=GameMenuView())
