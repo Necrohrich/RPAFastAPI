@@ -5,8 +5,10 @@ from disnake import ButtonStyle, MessageInteraction
 from disnake.ui import button, Button
 
 from app.discord.dependencies import game_system_service_ctx, user_service_ctx, game_service_ctx
+from app.discord.embeds.build_game_settings_embed import build_game_settings_embed
 from app.discord.modals import GameCreateModal
 from app.discord.modals.game_invitation_create_modal import GameInvitationCreateModal
+from app.discord.views.game_settings_view import GameSettingsView
 from app.discord.views.game_update_view import GameUpdateView
 from app.discord.views.select_view import SelectView
 from app.discord.views.base_view import BaseView
@@ -68,27 +70,30 @@ class GameMenuView(BaseView):
         )
         await inter.followup.send("Выберите игру:", view=view, ephemeral=True)
 
-    # @button(label="Settings", style=ButtonStyle.danger, custom_id="game:settings", row=1)
-    # async def settings_button(self, _: Button, inter: MessageInteraction) -> None:
-    #     await inter.response.defer(ephemeral=True)
-    #
-    #     async with user_service_ctx() as user_service:
-    #         user = await user_service.get_user_by_discord(inter.author.id)
-    #         games = await user_service.get_my_games_list(user.id)
-    #
-    #     async def on_game_selected(cb_inter: MessageInteraction, game_id: UUID):
-    #         async with game_service_ctx() as game_service:
-    #             game = await game_service.get_by_id(game_id)
-    #
-    #
-    #     view = SelectView(
-    #         items=games,
-    #         display_field="name",
-    #         title="Мои игры",
-    #         callback=on_game_selected,
-    #         skippable=False,
-    #     )
-    #     await inter.followup.send("Выберите игру:", view=view, ephemeral=True)
+    @button(label="Settings", style=ButtonStyle.primary, custom_id="game:settings", row=1)
+    async def settings_button(self, _: Button, inter: MessageInteraction) -> None:
+        await inter.response.defer(ephemeral=True)
+
+        async with user_service_ctx() as user_service:
+            user = await user_service.get_user_by_discord(inter.author.id)
+            games = await user_service.get_my_games_list(user.id)
+
+        async def on_game_selected(cb_inter: MessageInteraction, game_id: UUID):
+            async with game_service_ctx() as game_service:
+                game = await game_service.get_by_id(game_id)
+
+            embed = build_game_settings_embed(game)
+            await cb_inter.author.send(embed=embed, view=GameSettingsView(game_id))
+            await cb_inter.followup.send("✅ Настройки игры отправлена в личные сообщения", ephemeral=True)
+
+        view = SelectView(
+            items=games,
+            display_field="name",
+            title="Мои игры",
+            callback=on_game_selected,
+            skippable=False,
+        )
+        await inter.followup.send("Выберите игру:", view=view, ephemeral=True)
     #
     # @button(label="Open game", style=ButtonStyle.danger, custom_id="game:open", row=1)
     # async def open_button(self, _: Button, inter: MessageInteraction) -> None:
@@ -116,7 +121,7 @@ class GameMenuView(BaseView):
     #     )
     #     await inter.followup.send("Выберите игру:", view=view, ephemeral=True)
 
-    @button(label="Invite", style=ButtonStyle.danger, custom_id="game:invite", row=1)
+    @button(label="Invite", style=ButtonStyle.primary, custom_id="game:invite", row=1)
     async def invite_button(self, _: Button, inter: MessageInteraction) -> None:
         await inter.response.defer(ephemeral=True)
 
