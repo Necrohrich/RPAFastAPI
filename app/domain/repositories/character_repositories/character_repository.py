@@ -51,6 +51,13 @@ class ICharacterRepository(ABC):
     async def get_by_id_and_game_id(self, character_id: UUID, game_id: UUID) -> Optional[Character]: ...
 
     @abstractmethod
+    async def get_by_game_id_and_user_ids(self, game_id: UUID, user_ids: list[UUID], offset: int, limit: int) \
+            -> list[Character]: ...
+
+    @abstractmethod
+    async def count_by_game_id_and_user_ids(self, game_id: UUID, user_ids: list[UUID]) -> int: ...
+
+    @abstractmethod
     async def attach_to_game(self, character_id: UUID, game_id: UUID) -> Character: ...
 
     @abstractmethod

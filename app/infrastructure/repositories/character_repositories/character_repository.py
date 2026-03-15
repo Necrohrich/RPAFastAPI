@@ -113,6 +113,32 @@ class CharacterRepository(ICharacterRepository):
             return None
         return Mapper.model_to_entity(model, Character)
 
+    async def get_by_game_id_and_user_ids(
+            self, game_id: UUID, user_ids: list[UUID], offset: int, limit: int
+    ) -> list[Character]:
+        result = await self.session.execute(
+            select(CharacterModel)
+            .where(
+                CharacterModel.game_id == game_id,
+                CharacterModel.user_id.in_(user_ids)
+            )
+            .offset(offset)
+            .limit(limit)
+        )
+        return result.scalars().all()
+
+    async def count_by_game_id_and_user_ids(
+            self, game_id: UUID, user_ids: list[UUID]
+    ) -> int:
+        result = await self.session.execute(
+            select(func.count())
+            .where(
+                CharacterModel.game_id == game_id,
+                CharacterModel.user_id.in_(user_ids)
+            )
+        )
+        return result.scalar()
+
     async def attach_to_game(self, character_id: UUID, game_id: UUID) -> Character:
         stmt = (
             update(CharacterModel)
