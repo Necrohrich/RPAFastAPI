@@ -68,8 +68,9 @@ def get_character_service(
         game_system_repo=Depends(get_game_system_repo),
         user_repo=Depends(get_user_repo),
         game_repo=Depends(get_game_repo),
+        discord_repo=Depends(get_discord_repo)
 ):
-    return CharacterService(repo, game_system_repo, user_repo, game_repo)
+    return CharacterService(repo, game_system_repo, user_repo, game_repo, discord_repo)
 
 def get_game_service(
         repo=Depends(get_game_repo),
