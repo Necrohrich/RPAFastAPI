@@ -17,30 +17,30 @@ from app.validators import GameValidator
 
 class GameService:
     """
-        Application service responsible for game management and player participation.
+    Application service responsible for game management and player participation.
 
-        Handles:
-            - Game creation, updating, soft delete, restore and hard delete
-            - Retrieval of games by ID, author, with or without relations
-            - Player join requests, approval, rejection and removal
-            - Attaching and detaching characters to/from a game
+    Handles:
+        - Game creation, updating, soft delete, restore and hard delete
+        - Retrieval of games by ID, author, with or without relations
+        - Player join requests, approval, rejection and removal
+        - Attaching and detaching characters to/from a game
 
-        Responsibilities:
-            - Uses IGameRepository as primary data source
-            - Uses ICharacterRepository to manage character-game bindings
-            - Uses IGameSystemRepository to validate game_system_id
-            - Uses IUserRepository to verify user existence
-            - Validates game name and Discord IDs via GameValidator
-            - Enforces ownership check for update, soft_delete, approve, reject, remove_player
-            - Enforces game_system compatibility when attaching characters
-            - Limits regular players to one character per game, authors have no limit
+    Responsibilities:
+        - Uses IGameRepository as primary data source
+        - Uses ICharacterRepository to manage character-game bindings
+        - Uses IGameSystemRepository to validate game_system_id
+        - Uses IUserRepository to verify user existence
+        - Validates game name and Discord IDs via GameValidator
+        - Enforces ownership check for update, soft_delete, approve_join, reject_join, remove_player
+        - Enforces game_system compatibility when attaching characters
+        - Limits regular players to one character per game, authors have no limit
 
-        Does NOT:
-            - Handle authentication or token validation
-            - Enforce admin-level access for restore and delete (delegated to router/Discord layer)
-            - Manage character CRUD outside of game binding
-            - Contain infrastructure or persistence logic
-        """
+    Does NOT:
+        - Handle authentication or token validation
+        - Enforce admin-level access for restore and delete (delegated to router/Discord layer)
+        - Manage character CRUD outside of game binding
+        - Contain infrastructure or persistence logic
+    """
     def __init__(
             self,
             repo: IGameRepository,

@@ -17,26 +17,30 @@ from app.validators.user_validators import DiscordValidator, RoleValidator
 
 class UserService:
     """
-       Application service responsible for user profile management.
+    Application service responsible for user profile management.
 
-       Handles:
-           - Password changes
-           - Role updates
-           - Email management
-           - Discord account linking
-           - User retrieval by Discord ID
-           - Paginated retrieval of user's authored games, participated games and characters
+    Handles:
+        - Password changes with strength validation and session invalidation
+        - Role updates via RoleValidator
+        - Secondary email attachment
+        - Primary and secondary Discord account linking
+        - User retrieval by ID or Discord ID
+        - Paginated and full-list retrieval of authored games, participated games and characters
 
-       Responsibilities:
-           - Uses IUserRepository and IDiscordRepository
-           - Applies business rules related to user profile
-           - Invalidates sessions when required (e.g., password change)
+    Responsibilities:
+        - Uses IUserRepository as primary data source
+        - Uses IDiscordRepository to resolve and attach Discord accounts
+        - Validates password strength via PasswordValidator
+        - Validates Discord IDs via DiscordValidator
+        - Validates roles via RoleValidator
+        - Enforces uniqueness of email and Discord ID across users
+        - Prevents linking a Discord ID already used as primary
+        - Increments token_version on password change to invalidate existing sessions
 
-       Does NOT:
-           - Handle authentication flow
-           - Generate tokens
-           - Manage game or character CRUD directly
-           - Contain infrastructure logic
+    Does NOT:
+        - Handle authentication flow or token generation
+        - Manage game or character CRUD directly
+        - Contain infrastructure or persistence logic
     """
 
     def __init__(self, user_repo: IUserRepository, discord_repo: IDiscordRepository):

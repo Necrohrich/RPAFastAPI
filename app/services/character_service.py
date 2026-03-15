@@ -14,29 +14,32 @@ from app.validators import CharacterValidator
 
 class CharacterService:
     """
-        Application service responsible for character management.
+    Application service responsible for character management.
 
-        Handles:
-            - Character creation with optional game system binding
-            - Retrieval by ID (with and without relations), game, or author
-            - Paginated character lists by game or user
-            - Partial updates of character fields
-            - Soft delete and restore of characters
-            - Hard delete for administrative purposes
+    Handles:
+        - Character creation with optional game system binding
+        - Retrieval by ID (with and without relations), by game, or by author
+        - Paginated character lists by game or user
+        - Filtered lists for GM characters and player characters within a game
+        - Partial updates of character fields
+        - Soft delete, restore and hard delete of characters
 
-        Responsibilities:
-            - Uses ICharacterRepository as primary data source
-            - Uses IGameSystemRepository to validate game_system_id on creation
-            - Uses IGameRepository to validate game existence before listing characters
-            - Validates character name via CharacterValidator
-            - Enforces ownership check on update and soft_delete (requester_id == author)
-            - Injects author_id from caller context, not from DTO
+    Responsibilities:
+        - Uses ICharacterRepository as primary data source
+        - Uses IGameSystemRepository to validate game_system_id on creation and update
+        - Uses IGameRepository to validate game existence before listing characters
+        - Uses IUserRepository to verify user existence
+        - Uses IDiscordRepository to resolve gm_id to a user for GM character filtering
+        - Validates character name via CharacterValidator
+        - Enforces ownership check on update and soft_delete (requester_id == character.user_id)
+        - Prevents game_system_id from being overwritten once set
+        - Injects author_id from caller context, not from DTO
 
-        Does NOT:
-            - Handle authentication or token validation
-            - Enforce admin-level access for restore and delete (delegated to router/Discord layer)
-            - Manage game membership or join requests
-            - Contain infrastructure or persistence logic
+    Does NOT:
+        - Handle authentication or token validation
+        - Enforce admin-level access for restore and delete (delegated to router/Discord layer)
+        - Manage game membership or join requests
+        - Contain infrastructure or persistence logic
     """
 
     def __init__(
