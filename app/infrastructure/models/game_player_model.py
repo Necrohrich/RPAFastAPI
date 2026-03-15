@@ -23,8 +23,14 @@ class GamePlayerModel(BaseModel):
        """
     __tablename__ = 'game_players'
 
-    game_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey('games.id'), nullable=False)
-    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey('users.id'), nullable=False)
+    game_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey('games.id', ondelete="CASCADE"),
+        nullable=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey('users.id', ondelete="CASCADE"),
+        nullable=False)
     status: Mapped[PlayerStatusEnum] = mapped_column(SQLEnum(PlayerStatusEnum), nullable=False,
                                                      default=PlayerStatusEnum.PENDING)
 

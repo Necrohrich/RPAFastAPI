@@ -26,20 +26,20 @@ class CharacterModel(BaseModel):
     name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey('users.id'),
+        ForeignKey('users.id', ondelete="CASCADE"),
         nullable=False,
         index=True
     )
     game_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey('games.id'),
+        ForeignKey('games.id', ondelete="SET NULL"),
         nullable=True,
         index=True
     )
     avatar: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     game_system_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey('game_systems.id'),
+        ForeignKey('game_systems.id', ondelete="SET NULL"),
         nullable=True,
         index=True
     )

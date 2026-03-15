@@ -27,7 +27,7 @@ class GameModel(BaseModel):
     name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     author_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey('users.id'),
+        ForeignKey('users.id', ondelete="CASCADE"),
         nullable=False,
         index=True
     )
@@ -36,7 +36,7 @@ class GameModel(BaseModel):
     discord_main_channel_id: Mapped[int] = mapped_column(BigInteger, nullable=True)
     game_system_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey('game_systems.id'),
+        ForeignKey('game_systems.id', ondelete="SET NULL"),
         nullable=False,
         index=True
     )
