@@ -35,6 +35,7 @@ class GameResponseDTO(BaseModel):
     discord_role_id: Optional[int] = None
     discord_main_channel_id: Optional[int] = None
     game_system_id: UUID
+    game_system_name: Optional[str] = None
 
 class GameDetailedResponseDTO(BaseModel):
     model_config = ConfigDict(extra="ignore", from_attributes=True)
@@ -53,3 +54,8 @@ class GamePlayerResponseDTO(BaseModel):
     game_id: UUID
     user_id: UUID
     status: PlayerStatusEnum
+    name: Optional[str] = None
+
+    @property
+    def id(self) -> UUID:
+        return self.user_id
