@@ -187,6 +187,18 @@ class UserService:
             total_pages=(total + page_size - 1) // page_size
         )
     # пока используется только в Дискорд
+    async def get_my_games_list(self, user_id: UUID) -> list[GameResponseDTO]:
+        if not await self.user_repo.get_by_id(user_id):
+            raise NotFoundError()
+        items = await self.user_repo.get_my_games(user_id, offset=0, limit=None)
+        return [Mapper.entity_to_dto(item, GameResponseDTO) for item in items]
+
+    async def get_participated_games_list(self, user_id: UUID) -> list[GameResponseDTO]:
+        if not await self.user_repo.get_by_id(user_id):
+            raise NotFoundError()
+        items = await self.user_repo.get_participated_games(user_id, offset=0, limit=None)
+        return [Mapper.entity_to_dto(item, GameResponseDTO) for item in items]
+
     async def get_my_characters_list(self, user_id: UUID) -> list[CharacterResponseDTO]:
         if not await self.user_repo.get_by_id(user_id):
             raise NotFoundError()

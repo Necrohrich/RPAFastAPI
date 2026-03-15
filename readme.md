@@ -20,3 +20,6 @@ embed.set_image(url="attachment://photo1.png")
 
 await channel.send(file=file, embed=embed)
 ```
+
+## Посмотреть структуру файла
+cmd /c "tree /F /A | findstr /V cpython | findstr /V __pycache__"
