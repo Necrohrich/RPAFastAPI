@@ -1,34 +1,39 @@
-#app/domain/repositories/character_repositories/game_repository.py
+# app/domain/repositories/game_repositories/game_repository.py
 from abc import ABC, abstractmethod
 from typing import Optional
 from uuid import UUID
-from app.domain.entities import Game
-from app.domain.entities import GamePlayer
+
+from app.domain.entities import Game, GamePlayer
 from app.domain.enums import PlayerStatusEnum
+
 
 class IGameRepository(ABC):
     """
-        Интерфейс репозитория для работы с играми и их участниками.
+    Интерфейс репозитория для работы с играми и их участниками.
 
-        Управляет CRUD операциями игр и составом игроков. Все методы чтения автоматически
-        исключают удалённые игры (deleted_at IS NOT NULL).
+    Управляет CRUD операциями игр и составом игроков. Все методы чтения автоматически
+    исключают удалённые игры (deleted_at IS NOT NULL).
 
-        Методы:
-            * create — создаёт новую игру и возвращает её с присвоенным ID
-            * get_by_id — возвращает активную игру по UUID без загрузки связей
-            * get_by_id_with_relations — возвращает активную игру по UUID с загрузкой author, game_system
-            * get_by_author_id — возвращает все активные игры пользователя по его UUID
-            * update — обновляет поля игры и возвращает обновлённую сущность
-            * soft_delete — помечает игру удалённой (deleted_at = now), физически не удаляет
-            * restore — снимает метку удаления с игры (deleted_at = NULL), только для администраторов
-            * delete — физически удаляет игру по UUID, только для администраторов
+    Методы:
+        * create — создаёт новую игру и возвращает её с присвоенным ID
+        * get_by_id — возвращает активную игру по UUID без загрузки связей
+        * get_by_id_with_relations — возвращает активную игру по UUID с загрузкой author, game_system
+        * get_by_author_id — возвращает все активные игры пользователя по его UUID
+        * count_by_author_id — возвращает число игр пользователя по его UUID
+        * get_by_name_and_author_id — возвращает игру по названию и UUID автора
+        * update — обновляет поля игры и возвращает обновлённую сущность
+        * soft_delete — помечает игру удалённой (deleted_at = now), физически не удаляет
+        * restore — снимает метку удаления с игры (deleted_at = NULL), только для администраторов
+        * delete — физически удаляет игру по UUID, только для администраторов
 
-        Игроки:
-            * get_players — возвращает список участников игры, опционально фильтруя по статусу
-            * add_player — добавляет игрока в игру со статусом PENDING
-            * update_player_status — обновляет статус участника (ACCEPTED/REJECTED)
-            * remove_player — удаляет игрока из игры физически
-        """
+    Игроки:
+        * get_player — возвращает участника игры по UUID игры и UUID пользователя
+        * get_players — возвращает список участников игры, опционально фильтруя по статусу
+        * count_players — возвращает число участников игры, опционально фильтруя по статусу
+        * add_player — добавляет игрока в игру со статусом PENDING
+        * update_player_status — обновляет статус участника (ACCEPTED/REJECTED)
+        * remove_player — удаляет игрока из игры физически
+    """
 
     @abstractmethod
     async def create(self, game: Game) -> Game: ...
@@ -65,14 +70,13 @@ class IGameRepository(ABC):
     async def delete(self, game_id: UUID) -> None: ...
 
     # --- Игроки ---
-
-    # Интерфейс
     @abstractmethod
     async def get_player(self, game_id: UUID, user_id: UUID) -> Optional[GamePlayer]: ...
 
     @abstractmethod
-    async def get_players(self, game_id: UUID, status: Optional[PlayerStatusEnum], offset: int, limit: int) -> list[
-        GamePlayer]: ...
+    async def get_players(
+        self, game_id: UUID, status: Optional[PlayerStatusEnum], offset: int, limit: int
+    ) -> list[GamePlayer]: ...
 
     @abstractmethod
     async def count_players(self, game_id: UUID, status: Optional[PlayerStatusEnum] = None) -> int: ...
@@ -81,7 +85,9 @@ class IGameRepository(ABC):
     async def add_player(self, game_player: GamePlayer) -> GamePlayer: ...
 
     @abstractmethod
-    async def update_player_status(self, game_id: UUID, user_id: UUID, status: PlayerStatusEnum) -> GamePlayer: ...
+    async def update_player_status(
+        self, game_id: UUID, user_id: UUID, status: PlayerStatusEnum
+    ) -> GamePlayer: ...
 
     @abstractmethod
     async def remove_player(self, game_id: UUID, user_id: UUID) -> None: ...
