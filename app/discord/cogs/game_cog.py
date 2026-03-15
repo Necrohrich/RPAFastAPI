@@ -1,14 +1,16 @@
 #app/discord/cogs/game_cog.py
-from disnake import ApplicationCommandInteraction, Embed
+from uuid import UUID
+
+from disnake import ApplicationCommandInteraction, Embed, User, MessageInteraction
 from disnake.ext import commands
 
 from app.core.config import settings
-from app.discord.dependencies import game_system_service_ctx
+from app.discord.dependencies import game_system_service_ctx, user_service_ctx, game_service_ctx
 from app.discord.embeds.build_game_menu_embed import build_game_menu_embed
 from app.discord.embeds.build_game_system_embed import build_game_system_embed
 from app.discord.embeds.build_game_systems_embed import build_game_systems_embed
 from app.discord.policies import require_role
-from app.discord.views import PaginationView, GameMenuView
+from app.discord.views import PaginationView, GameMenuView, SelectView
 from app.domain.policies import PlatformPolicies
 from app.dto import CreateGameSystemDTO, UpdateGameSystemDTO
 
@@ -107,3 +109,61 @@ class GameCog(commands.Cog):
         embed, file = build_game_menu_embed()
 
         await inter.send(embed=embed, file=file, view=GameMenuView())
+
+    @game.sub_command(name="restore", description=" Восстановить удаленную игру [MODERATOR]")
+    @require_role(PlatformPolicies.require_moderator)
+    async def restore(
+            self,
+            inter: ApplicationCommandInteraction,
+            user: User
+    ) -> None:
+        await inter.response.defer(ephemeral=True)
+
+        async with user_service_ctx() as user_service:
+            user = await user_service.get_user_by_discord(user.id)
+
+        async with game_service_ctx() as game_service:
+            games = await game_service.get_list_by_author_id(user.id, only_deleted=True)
+
+        async def on_game_selected(cb_inter: MessageInteraction, game_id: UUID):
+            async with game_service_ctx() as gs:
+                await gs.restore(game_id)
+            await cb_inter.followup.send("✅ Игра успешно восстановлена", ephemeral=True)
+
+        view = SelectView(
+            items=games,
+            display_field="name",
+            title="Игры",
+            callback=on_game_selected,
+            skippable=False
+        )
+        await inter.followup.send("Выберите игру:", view=view, ephemeral=True)
+
+    @game.sub_command(name="delete", description="Удалить выбранную игру пользователя [SUPERADMIN]")
+    @require_role(PlatformPolicies.require_superadmin)
+    async def delete(
+            self,
+            inter: ApplicationCommandInteraction,
+            user: User
+    ) -> None:
+        await inter.response.defer(ephemeral=True)
+
+        async with user_service_ctx() as user_service:
+            user = await user_service.get_user_by_discord(user.id)
+
+        async with game_service_ctx() as game_service:
+            games = await game_service.get_list_by_author_id(user.id, include_deleted=True)
+
+        async def on_game_selected(cb_inter: MessageInteraction, game_id: UUID):
+            async with game_service_ctx() as gs:
+                await gs.delete(game_id)
+            await cb_inter.followup.send("✅ Игра успешно удалена", ephemeral=True)
+
+        view = SelectView(
+            items=games,
+            display_field="name",
+            title="Игры",
+            callback=on_game_selected,
+            skippable=False
+        )
+        await inter.followup.send("Выберите игру:", view=view, ephemeral=True)

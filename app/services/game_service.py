@@ -111,6 +111,17 @@ class GameService:
             total_pages=(total + page_size - 1) // page_size
         )
 
+    # только для Дискорд
+    async def get_list_by_author_id(self, author_id: UUID, include_deleted: bool = False, only_deleted: bool = False) \
+            -> list[GameResponseDTO]:
+        if not await self.user_repo.get_by_id(author_id):
+            raise NotFoundError()
+        items = await self.repo.get_by_author_id(
+            author_id=author_id, offset=0, limit=None,
+            include_deleted=include_deleted, only_deleted=only_deleted
+        )
+        return await self._enrich_list(items)
+
     async def get_players(self, game_id: UUID, page: int, page_size: int,
                           status: Optional[PlayerStatusEnum] = None) \
             -> PaginatedResponseDTO[GamePlayerResponseDTO]:
@@ -184,7 +195,7 @@ class GameService:
         await self.repo.restore(game_id)
 
     async def delete(self, game_id: UUID) -> None:
-        if not await self.repo.get_by_id(game_id):
+        if not await self.repo.get_by_id_include_deleted(game_id):
             raise GameNotFoundException()
         await self.repo.delete(game_id)
 
