@@ -44,6 +44,14 @@ class GameRepository(IGameRepository):
             return None
         return Mapper.model_to_entity(model, Game)
 
+    async def get_by_id_include_deleted(self, game_id: UUID) -> Optional[Game]:
+        stmt = select(GameModel).where(GameModel.id == game_id)
+        result = await self.session.execute(stmt)
+        model = result.scalar_one_or_none()
+        if not model:
+            return None
+        return Mapper.model_to_entity(model, Game)
+
     async def get_by_id_with_relations(self, game_id: UUID) -> Optional[Game]:
         stmt = self._active(
             select(GameModel)
@@ -66,18 +74,28 @@ class GameRepository(IGameRepository):
             }
         )
 
-    async def get_by_author_id(self, author_id: UUID, offset: int, limit: int) -> list[Game]:
-        stmt = self._active(
-            select(GameModel).where(GameModel.author_id == author_id)
-        ).offset(offset).limit(limit)
+    async def get_by_author_id(
+        self, author_id: UUID, offset: int, limit: int,
+        include_deleted: bool = False, only_deleted: bool = False
+    ) -> list[Game]:
+        stmt = select(GameModel).where(GameModel.author_id == author_id)
+        if only_deleted:
+            stmt = stmt.where(GameModel.deleted_at.isnot(None))
+        elif not include_deleted:
+            stmt = stmt.where(GameModel.deleted_at.is_(None))
+        stmt = stmt.offset(offset).limit(limit)
         result = await self.session.execute(stmt)
         return [Mapper.model_to_entity(m, Game) for m in result.scalars().all()]
 
-    async def count_by_author_id(self, author_id: UUID) -> int:
-        stmt = self._active(
-            select(func.count()).select_from(GameModel)
-            .where(GameModel.author_id == author_id)
-        )
+    async def count_by_author_id(
+        self, author_id: UUID,
+        include_deleted: bool = False, only_deleted: bool = False
+    ) -> int:
+        stmt = select(func.count()).select_from(GameModel).where(GameModel.author_id == author_id)
+        if only_deleted:
+            stmt = stmt.where(GameModel.deleted_at.isnot(None))
+        elif not include_deleted:
+            stmt = stmt.where(GameModel.deleted_at.is_(None))
         result = await self.session.execute(stmt)
         return result.scalar_one()
 

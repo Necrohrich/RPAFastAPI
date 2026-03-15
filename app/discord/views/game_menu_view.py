@@ -54,7 +54,7 @@ class GameMenuView(BaseView):
 
         async with user_service_ctx() as user_service:
             user = await user_service.get_user_by_discord(inter.author.id)
-            games = await user_service.get_my_games(user.id)
+            games = await user_service.get_my_games_list(user.id)
 
         async def on_game_selected(cb_inter: MessageInteraction, game_id: UUID):
             async with game_service_ctx() as game_service:

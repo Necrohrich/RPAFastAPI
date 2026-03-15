@@ -18,8 +18,8 @@ class IGameRepository(ABC):
         * create — создаёт новую игру и возвращает её с присвоенным ID
         * get_by_id — возвращает активную игру по UUID без загрузки связей
         * get_by_id_with_relations — возвращает активную игру по UUID с загрузкой author, game_system
-        * get_by_author_id — возвращает все активные игры пользователя по его UUID
-        * count_by_author_id — возвращает число игр пользователя по его UUID
+        * get_by_author_id — возвращает игры пользователя по его UUID; поддерживает фильтрацию по deleted_at через include_deleted и only_deleted
+        * count_by_author_id — возвращает число игр пользователя; поддерживает те же флаги
         * get_by_name_and_author_id — возвращает игру по названию и UUID автора
         * update — обновляет поля игры и возвращает обновлённую сущность
         * soft_delete — помечает игру удалённой (deleted_at = now), физически не удаляет
@@ -42,15 +42,24 @@ class IGameRepository(ABC):
     @abstractmethod
     async def get_by_id(self, game_id: UUID) -> Optional[Game]: ...
 
+    @abstractmethod
+    async def get_by_id_include_deleted(self, game_id: UUID) -> Optional[Game]: ...
+
     # С полной загрузкой: author, game_system
     @abstractmethod
     async def get_by_id_with_relations(self, game_id: UUID) -> Optional[Game]: ...
 
     @abstractmethod
-    async def get_by_author_id(self, author_id: UUID, offset: int, limit: int) -> list[Game]: ...
+    async def get_by_author_id(
+            self, author_id: UUID, offset: int, limit: int,
+            include_deleted: bool = False, only_deleted: bool = False
+    ) -> list[Game]: ...
 
     @abstractmethod
-    async def count_by_author_id(self, author_id: UUID) -> int: ...
+    async def count_by_author_id(
+            self, author_id: UUID,
+            include_deleted: bool = False, only_deleted: bool = False
+    ) -> int: ...
 
     @abstractmethod
     async def get_by_name_and_author_id(self, author_id: UUID, name: str) -> Optional[Game]: ...

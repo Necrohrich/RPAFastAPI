@@ -228,8 +228,9 @@ class CharacterService:
         await self.repo.restore(character_id)
 
     async def delete(self, character_id: UUID) -> None:
-        if not await self.repo.get_by_id(character_id):
+        if not await self.repo.get_by_id_include_deleted(character_id):
             raise CharacterNotFoundException()
+
         await self.repo.delete(character_id)
 
 

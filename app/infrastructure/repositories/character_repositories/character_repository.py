@@ -43,6 +43,14 @@ class CharacterRepository(ICharacterRepository):
             return None
         return Mapper.model_to_entity(model, Character)
 
+    async def get_by_id_include_deleted(self, character_id: UUID) -> Optional[Character]:
+        stmt = select(CharacterModel).where(CharacterModel.id == character_id)
+        result = await self.session.execute(stmt)
+        model = result.scalar_one_or_none()
+        if not model:
+            return None
+        return Mapper.model_to_entity(model, Character)
+
     async def get_by_id_with_relations(self, character_id: UUID) -> Optional[Character]:
         stmt = self._active(
             select(CharacterModel)
@@ -119,7 +127,6 @@ class CharacterRepository(ICharacterRepository):
             .where(
                 CharacterModel.name == name,
                 CharacterModel.game_id == game_id,
-                CharacterModel.deleted_at.is_(None)
             )
         )
         result = await self.session.execute(stmt)

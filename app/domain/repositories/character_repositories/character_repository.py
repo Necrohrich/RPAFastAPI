@@ -16,6 +16,7 @@ class ICharacterRepository(ABC):
     Методы:
         * create — создаёт нового персонажа и возвращает его с присвоенным ID
         * get_by_id — возвращает персонажа по UUID без загрузки связей
+        * get_by_id_include_deleted — возвращает персонажа по UUID включая мягко удалённых
         * get_by_id_with_relations — возвращает персонажа по UUID с полной загрузкой author, game, game_system
         * get_all_by_user_id — возвращает всех персонажей пользователя по его UUID
         * count_by_user_id — возвращает число персонажей пользователя по его UUID
@@ -40,6 +41,9 @@ class ICharacterRepository(ABC):
 
     @abstractmethod
     async def get_by_id(self, character_id: UUID) -> Optional[Character]: ...
+
+    @abstractmethod
+    async def get_by_id_include_deleted(self, character_id: UUID) -> Optional[Character]: ...
 
     # С полной загрузкой связей: author, game, game_system
     @abstractmethod
