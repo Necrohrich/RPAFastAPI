@@ -229,10 +229,16 @@ class GameService:
         game = await self.repo.get_by_id(game_id)
         if not game:
             raise GameNotFoundException()
-        if game.author_id != requester_id:
+
+        is_author = game.author_id == requester_id
+        is_self = player_id == requester_id
+
+        if not is_author and not is_self:
             raise NotGameAuthorException()
+
         if not await self.repo.get_player(game_id, player_id):
             raise PlayerNotFoundException()
+
         await self.repo.remove_player(game_id, player_id)
 
     async def attach_character(self, game_id: UUID, character_id: UUID, requester_id: UUID) \
@@ -253,11 +259,13 @@ class GameService:
 
         # Игрок может добавить только одного персонажа
         if not is_author:
-            existing = await self.character_repo.get_by_game_id(
-                game_id=game_id, offset=0, limit=1
+            existing = await self.character_repo.get_by_game_id_and_user_ids(
+                game_id=game_id,
+                user_ids=[requester_id],
+                offset=0,
+                limit=1
             )
-            # проверяем есть ли уже персонаж этого игрока в игре
-            if any(c.user_id == requester_id for c in existing):
+            if existing:
                 raise CharacterAlreadyExistsException()
 
         # Проверка game_system
@@ -271,7 +279,7 @@ class GameService:
             )
 
         # Уникальность имени в игре
-        if await self.character_repo.get_by_id_and_game_id(character_id, game_id):
+        if await self.character_repo.get_by_name_and_game_id(character.name, game_id):
             raise CharacterAlreadyExistsException()
 
         response = await self.character_repo.attach_to_game(character_id, game_id)

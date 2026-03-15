@@ -113,6 +113,21 @@ class CharacterRepository(ICharacterRepository):
             return None
         return Mapper.model_to_entity(model, Character)
 
+    async def get_by_name_and_game_id(self, name: str, game_id: UUID) -> Optional[Character]:
+        stmt = self._active(
+            select(CharacterModel)
+            .where(
+                CharacterModel.name == name,
+                CharacterModel.game_id == game_id,
+                CharacterModel.deleted_at.is_(None)
+            )
+        )
+        result = await self.session.execute(stmt)
+        model = result.scalar_one_or_none()
+        if not model:
+            return None
+        return Mapper.model_to_entity(model, Character)
+
     async def get_by_game_id_and_user_ids(
             self, game_id: UUID, user_ids: list[UUID], offset: int, limit: int
     ) -> list[Character]:
@@ -135,6 +150,32 @@ class CharacterRepository(ICharacterRepository):
             .where(
                 CharacterModel.game_id == game_id,
                 CharacterModel.user_id.in_(user_ids)
+            )
+        )
+        return result.scalar()
+
+    async def get_by_game_id_exclude_user_ids(
+            self, game_id: UUID, exclude_user_ids: list[UUID], offset: int, limit: int
+    ) -> list[Character]:
+        result = await self.session.execute(
+            select(CharacterModel)
+            .where(
+                CharacterModel.game_id == game_id,
+                CharacterModel.user_id.not_in(exclude_user_ids)
+            )
+            .offset(offset)
+            .limit(limit)
+        )
+        return result.scalars().all()
+
+    async def count_by_game_id_exclude_user_ids(
+            self, game_id: UUID, exclude_user_ids: list[UUID]
+    ) -> int:
+        result = await self.session.execute(
+            select(func.count())
+            .where(
+                CharacterModel.game_id == game_id,
+                CharacterModel.user_id.not_in(exclude_user_ids)
             )
         )
         return result.scalar()

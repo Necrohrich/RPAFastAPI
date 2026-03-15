@@ -19,7 +19,7 @@ class GameInvitationCreateModal(BaseModal):
                 style=TextInputStyle.short,
                 placeholder="Сюда отправится приглашение",
                 min_length=17,
-                max_length=18
+                max_length=19
             ),
             TextInput(
                 label="Введите текст приглашения",

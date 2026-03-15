@@ -12,7 +12,7 @@ class AttachDiscordIdModal(BaseModal):
                 custom_id="discord_id_input",
                 style=TextInputStyle.short,
                 min_length=17,
-                max_length=18,
+                max_length=19,
             ),
         ]
         super().__init__(

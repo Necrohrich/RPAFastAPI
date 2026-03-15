@@ -26,7 +26,7 @@ class GameUpdateModal(BaseModal):
                 custom_id="gm_id_input",
                 style=TextInputStyle.short,
                 min_length=17,
-                max_length=18,
+                max_length=19,
                 required=False
             ),
             TextInput(
@@ -34,7 +34,7 @@ class GameUpdateModal(BaseModal):
                 custom_id="discord_role_id_input",
                 style=TextInputStyle.short,
                 min_length=17,
-                max_length=18,
+                max_length=19,
                 required=False
             ),
             TextInput(
@@ -42,7 +42,7 @@ class GameUpdateModal(BaseModal):
                 custom_id="discord_main_channel_id_input",
                 style=TextInputStyle.short,
                 min_length=17,
-                max_length=18,
+                max_length=19,
                 required=False
             ),
         ]

@@ -74,7 +74,7 @@ _ERROR_MAP: dict[type[Exception], tuple[str, str, disnake.Color]] = {
     ),
     CharacterAlreadyExistsException: (
         "Персонаж уже существует",
-        "Персонаж с таким именем уже существует в этой игре.",
+        "Персонаж уже существует в этой игре.",
         disnake.Color.orange(),
     ),
     CharacterGameSystemMismatchException: (

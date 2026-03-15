@@ -10,7 +10,8 @@ __all__=[
     "GameUpdateView",
     "GameInvitationView",
     "GameSettingsView",
-    "PlayerRequestActionView"
+    "PlayerRequestActionView",
+    "GamePageView"
 ]
 
 from app.discord.views.base_view import BaseView
@@ -18,6 +19,7 @@ from app.discord.views.character_update_view import CharacterUpdateView
 from app.discord.views.character_view import CharacterView
 from app.discord.views.game_invitation_view import GameInvitationView
 from app.discord.views.game_menu_view import GameMenuView
+from app.discord.views.game_page_view import GamePageView
 from app.discord.views.game_settings_view import GameSettingsView
 from app.discord.views.game_update_view import GameUpdateView
 from app.discord.views.pagination_view import PaginationView

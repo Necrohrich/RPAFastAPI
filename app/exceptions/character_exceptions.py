@@ -9,7 +9,7 @@ class CharacterNotFoundException(CharacterError):
     pass
 
 class CharacterAlreadyExistsException(CharacterError):
-    """Персонаж с таким именем уже существует в этой игре"""
+    """Персонаж уже существует в этой игре"""
     pass
 
 class CharacterGameSystemMismatchException(CharacterError):

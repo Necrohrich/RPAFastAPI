@@ -73,9 +73,3 @@ class PlayerRequestActionView(BaseView):
 
         await self._notify_player(inter, accepted=False)
         await inter.followup.send("❌ Заявка отклонена", ephemeral=True)
-
-    @button(label="⏭ Пропустить", style=ButtonStyle.secondary, custom_id="player_request:skip")
-    async def skip_button(self, _: Button, inter: MessageInteraction) -> None:
-        await inter.response.defer(ephemeral=True)
-        await inter.delete_original_response()
-

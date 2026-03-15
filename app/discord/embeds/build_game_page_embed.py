@@ -1,7 +1,7 @@
-# app/discord/embeds/build_game_settings_embed.py
+# app/discord/embeds/build_game_page_embed.py
 from disnake import Embed, Color
 
-def build_game_settings_embed(game) -> Embed:
+def build_game_page_embed(game) -> Embed:
     embed = Embed(title=f"⚙️ Настройки игры: {game.name}", color=Color.from_rgb(1, 121, 111))
 
     embed.description = "Меню доступно в течении 180 секунд или до перезагрузки бота \n"

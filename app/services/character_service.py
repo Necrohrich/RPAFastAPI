@@ -99,6 +99,15 @@ class CharacterService:
         items = await self.repo.get_by_game_id(game_id=game_id, offset=0, limit=None)
         return [Mapper.entity_to_dto(item, CharacterResponseDTO) for item in items]
 
+    # только для Дискорд
+    async def get_list_by_game_id_and_user_id(self, game_id: UUID, user_id: UUID) -> list[CharacterResponseDTO]:
+        if not await self.game_repo.get_by_id(game_id):
+            raise GameNotFoundException()
+        if not await self.user_repo.get_by_id(user_id):
+            raise NotFoundError()
+        items = await self.repo.get_by_game_id_and_user_ids(game_id, [user_id], offset=0, limit=None)
+        return [Mapper.entity_to_dto(item, CharacterResponseDTO) for item in items]
+
     async def get_by_user_id(self, author_id: UUID, page: int, page_size: int) -> PaginatedResponseDTO[CharacterResponseDTO]:
         if not await self.user_repo.get_by_id(author_id):
             raise NotFoundError()
@@ -130,6 +139,31 @@ class CharacterService:
         offset = (page - 1) * page_size
         items = await self.repo.get_by_game_id_and_user_ids(game_id, user_ids, offset, limit=page_size)
         total = await self.repo.count_by_game_id_and_user_ids(game_id, user_ids)
+
+        return PaginatedResponseDTO(
+            items=[Mapper.entity_to_dto(item, CharacterResponseDTO) for item in items],
+            total=total,
+            page=page,
+            page_size=page_size,
+            total_pages=(total + page_size - 1) // page_size
+        )
+
+    # todo: добавить в роутер
+    async def get_players_characters_by_game_id(self, game_id: UUID, page: int, page_size: int) \
+            -> PaginatedResponseDTO[CharacterResponseDTO]:
+        game = await self.game_repo.get_by_id(game_id)
+        if not game:
+            raise GameNotFoundException()
+
+        exclude_ids = [game.author_id]
+        if game.gm_id:
+            gm = await self.discord_repo.get_user_by_discord_id(game.gm_id)
+            if gm:
+                exclude_ids.append(gm.id)
+
+        offset = (page - 1) * page_size
+        items = await self.repo.get_by_game_id_exclude_user_ids(game_id, exclude_ids, offset, limit=page_size)
+        total = await self.repo.count_by_game_id_exclude_user_ids(game_id, exclude_ids)
 
         return PaginatedResponseDTO(
             items=[Mapper.entity_to_dto(item, CharacterResponseDTO) for item in items],

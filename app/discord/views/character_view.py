@@ -34,6 +34,7 @@ class CharacterView(BaseView):
             title="Игровая система",
             callback=on_game_system_selected,
             skippable=True,
+            modal_callback=True
         )
         await inter.followup.send("Выберите игровую систему:", view=view, ephemeral=True)
 
