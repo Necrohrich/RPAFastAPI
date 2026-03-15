@@ -128,6 +128,15 @@ class UserService:
 
         await self.discord_repo.attach_secondary(user_id, discord_id)
 
+    # todo: добавить потом в роутер
+    async def get_by_id(self, user_id: UUID) -> UserDTO:
+        user = await self.user_repo.get_by_id(user_id)
+
+        if not user:
+            raise NotFoundError()
+
+        return Mapper.entity_to_dto(user, UserDTO)
+
     async def get_user_by_discord(self, discord_id: int) -> UserDTO:
         user = await self.discord_repo.get_user_by_discord_id(discord_id)
 

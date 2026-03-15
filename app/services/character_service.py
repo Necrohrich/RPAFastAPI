@@ -2,7 +2,8 @@
 from uuid import UUID
 
 from app.domain.entities import Character
-from app.domain.repositories import ICharacterRepository, IGameSystemRepository, IUserRepository, IGameRepository
+from app.domain.repositories import ICharacterRepository, IGameSystemRepository, IUserRepository, IGameRepository, \
+    IDiscordRepository
 from app.dto import CreateCharacterDTO, CharacterResponseDTO, CharacterDetailResponseDTO, PaginatedResponseDTO, \
     UpdateCharacterDTO
 from app.exceptions import GameSystemNotFoundException, NotFoundError, CharacterNotFoundException, \
@@ -43,12 +44,14 @@ class CharacterService:
             repo: ICharacterRepository,
             game_system_repo: IGameSystemRepository,
             user_repo: IUserRepository,
-            game_repo: IGameRepository
+            game_repo: IGameRepository,
+            discord_repo: IDiscordRepository
     ):
         self.repo = repo
         self.game_system_repo = game_system_repo
         self.user_repo=user_repo
         self.game_repo=game_repo
+        self.discord_repo=discord_repo
 
     async def create(self, dto: CreateCharacterDTO, author_id: UUID)  -> CharacterResponseDTO:
         CharacterValidator.validate_name(dto.name)
@@ -89,12 +92,44 @@ class CharacterService:
             total_pages=(total + page_size - 1) // page_size
         )
 
+    # только для Дискорд
+    async def get_list_by_game_id(self, game_id: UUID) -> list[CharacterResponseDTO]:
+        if not await self.game_repo.get_by_id(game_id):
+            raise GameNotFoundException()
+        items = await self.repo.get_by_game_id(game_id=game_id, offset=0, limit=None)
+        return [Mapper.entity_to_dto(item, CharacterResponseDTO) for item in items]
+
     async def get_by_user_id(self, author_id: UUID, page: int, page_size: int) -> PaginatedResponseDTO[CharacterResponseDTO]:
         if not await self.user_repo.get_by_id(author_id):
             raise NotFoundError()
         offset = (page - 1) * page_size
         items = await self.repo.get_all_by_user_id(user_id=author_id, offset=offset, limit=page_size)
         total = await self.repo.count_by_user_id(author_id)
+
+        return PaginatedResponseDTO(
+            items=[Mapper.entity_to_dto(item, CharacterResponseDTO) for item in items],
+            total=total,
+            page=page,
+            page_size=page_size,
+            total_pages=(total + page_size - 1) // page_size
+        )
+
+    async def get_gm_characters_by_game_id(
+            self, game_id: UUID, page: int, page_size: int
+    ) -> PaginatedResponseDTO[CharacterResponseDTO]:
+        game = await self.game_repo.get_by_id(game_id)
+        if not game:
+            raise GameNotFoundException()
+
+        user_ids = [game.author_id]
+        if game.gm_id:
+            gm = await self.discord_repo.get_user_by_discord_id(game.gm_id)
+            if gm:
+                user_ids.append(gm.id)
+
+        offset = (page - 1) * page_size
+        items = await self.repo.get_by_game_id_and_user_ids(game_id, user_ids, offset, limit=page_size)
+        total = await self.repo.count_by_game_id_and_user_ids(game_id, user_ids)
 
         return PaginatedResponseDTO(
             items=[Mapper.entity_to_dto(item, CharacterResponseDTO) for item in items],

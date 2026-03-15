@@ -53,6 +53,24 @@ class GameService:
         self.user_repo=user_repo
         self.game_system_repo=game_system_repo
 
+    async def _to_dto(self, game: Game) -> GameResponseDTO:
+        dto = Mapper.entity_to_dto(game, GameResponseDTO)
+        if game.game_system_id:
+            game_system = await self.game_system_repo.get_by_id(game.game_system_id)
+            dto.game_system_name = game_system.name if game_system else None
+        return dto
+
+    async def _enrich_list(self, games: list[Game]) -> list[GameResponseDTO]:
+        system_ids = {g.game_system_id for g in games if g.game_system_id}
+        systems = {sid: await self.game_system_repo.get_by_id(sid) for sid in system_ids}
+        result = []
+        for game in games:
+            dto = Mapper.entity_to_dto(game, GameResponseDTO)
+            system = systems.get(game.game_system_id)
+            dto.game_system_name = system.name if system else None
+            result.append(dto)
+        return result
+
     async def create(self, dto: CreateGameDTO, author_id: UUID) -> GameResponseDTO:
         GameValidator.validate_name(dto.name)
         if not await self.game_system_repo.get_by_id(dto.game_system_id):
@@ -64,13 +82,13 @@ class GameService:
         data["author_id"] = author_id
         game = Mapper.dto_to_entity(data, Game)
         response = await self.repo.create(game)
-        return Mapper.entity_to_dto(response, GameResponseDTO)
+        return await self._to_dto(response)
 
     async def get_by_id(self, game_id: UUID) -> GameResponseDTO:
         game = await self.repo.get_by_id(game_id)
         if not game:
             raise GameNotFoundException()
-        return Mapper.entity_to_dto(game, GameResponseDTO)
+        return await self._to_dto(game)
 
     async def get_by_id_with_relations(self, game_id: UUID) -> GameDetailedResponseDTO:
         game = await self.repo.get_by_id_with_relations(game_id)
@@ -86,7 +104,7 @@ class GameService:
         items = await self.repo.get_by_author_id(author_id=author_id, offset=offset, limit=page_size)
         total = await self.repo.count_by_author_id(author_id)
         return PaginatedResponseDTO(
-            items=[Mapper.entity_to_dto(item, GameResponseDTO) for item in items],
+            items=await self._enrich_list(items),
             total=total,
             page=page,
             page_size=page_size,
@@ -101,13 +119,34 @@ class GameService:
         offset = (page - 1) * page_size
         items = await self.repo.get_players(game_id=game_id, offset=offset, limit=page_size, status=status)
         total = await self.repo.count_players(game_id, status=status)
+        result = []
+        for item in items:
+            dto = Mapper.entity_to_dto(item, GamePlayerResponseDTO)
+            user = await self.user_repo.get_by_id(item.user_id)
+            dto.name = user.login if user else str(item.user_id)
+            result.append(dto)
         return PaginatedResponseDTO(
-            items=[Mapper.entity_to_dto(item, GamePlayerResponseDTO) for item in items],
+            items=result,
             total=total,
             page=page,
             page_size=page_size,
             total_pages=(total + page_size - 1) // page_size
         )
+
+    # только в Дискорд
+    async def get_players_list(
+            self, game_id: UUID, status: Optional[PlayerStatusEnum] = None
+    ) -> list[GamePlayerResponseDTO]:
+        if not await self.repo.get_by_id(game_id):
+            raise GameNotFoundException()
+        items = await self.repo.get_players(game_id=game_id, offset=0, limit=None, status=status)
+        result = []
+        for item in items:
+            dto = Mapper.entity_to_dto(item, GamePlayerResponseDTO)
+            user = await self.user_repo.get_by_id(item.user_id)
+            dto.name = user.login if user else str(item.user_id)
+            result.append(dto)
+        return result
 
     async def update(self, game_id: UUID, dto: UpdateGameDTO, requester_id: UUID) -> GameResponseDTO:
         if dto.name is not None:
@@ -131,7 +170,7 @@ class GameService:
         if dto.discord_main_channel_id is not None:
             game.discord_main_channel_id = dto.discord_main_channel_id
         response = await self.repo.update(game)
-        return Mapper.entity_to_dto(response, GameResponseDTO)
+        return await self._to_dto(response)
 
     async def soft_delete(self, game_id: UUID, requester_id) -> None:
         game = await self.repo.get_by_id(game_id)
