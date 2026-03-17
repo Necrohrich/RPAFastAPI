@@ -1,4 +1,5 @@
 # app/services/game_session_service.py
+from typing import Optional
 from uuid import UUID
 
 from app.domain.entities import GameSession
@@ -11,9 +12,12 @@ from app.exceptions import (
     GameSessionAlreadyActiveException,
     GameSessionInvalidStatusTransitionException,
 )
+from app.exceptions import (
+    SessionAlreadyLinkedToEventException,
+    EventAlreadyLinkedToSessionException,
+)
 from app.utils import Mapper
 
-# Допустимые переходы статусов: {текущий: {допустимые следующие}}
 _ALLOWED_TRANSITIONS: dict[GameSessionStatusEnum, set[GameSessionStatusEnum]] = {
     GameSessionStatusEnum.CREATED:   {GameSessionStatusEnum.ACTIVE, GameSessionStatusEnum.CANCELED, GameSessionStatusEnum.INVALID},
     GameSessionStatusEnum.ACTIVE:    {GameSessionStatusEnum.COMPLETED, GameSessionStatusEnum.CANCELED, GameSessionStatusEnum.INVALID},
@@ -29,16 +33,12 @@ class GameSessionService:
 
     Handles:
         - Session creation with automatic session_number assignment
-        - Retrieval by ID, by game (paginated), by Discord event ID
+        - Retrieval by ID, by game (all or completed only, paginated), by Discord event ID
         - Updating content fields (title, description, image_url, started_at, ended_at)
         - Status transitions: start, complete, cancel, invalidate
         - Enforcement of the single-active-session-per-game rule
-
-    Responsibilities:
-        - Uses IGameSessionRepository as primary data source
-        - Uses IGameRepository to verify game existence
-        - Enforces status transition rules via _check_transition()
-        - Delegates active-session collision detection to the repository
+        - Linking Discord Scheduled Events to sessions manually (/session link)
+        - Creating/deleting Discord state on start/complete/cancel/invalidate
 
     Does NOT:
         - Handle authentication or token validation
@@ -58,11 +58,7 @@ class GameSessionService:
     # ── helpers ──────────────────────────────────────────────────────────────
 
     @staticmethod
-    def _check_transition(
-        current: GameSessionStatusEnum,
-        target: GameSessionStatusEnum,
-    ) -> None:
-        """Бросает исключение, если переход статуса недопустим."""
+    def _check_transition(current: GameSessionStatusEnum, target: GameSessionStatusEnum) -> None:
         if target not in _ALLOWED_TRANSITIONS.get(current, set()):
             raise GameSessionInvalidStatusTransitionException(
                 f"Cannot transition from {current} to {target}"
@@ -77,11 +73,6 @@ class GameSessionService:
     # ── write ─────────────────────────────────────────────────────────────────
 
     async def create(self, dto: CreateGameSessionDTO) -> GameSessionResponseDTO:
-        """Создаёт новую сессию со статусом CREATED и следующим порядковым номером.
-
-        Проверяет существование игры. Нумерация ведётся только по действительным
-        сессиям (не CANCELED / INVALID).
-        """
         if not await self.game_repo.get_by_id(dto.game_id):
             raise GameNotFoundException()
 
@@ -100,15 +91,7 @@ class GameSessionService:
         created = await self.repo.create(session)
         return Mapper.entity_to_dto(created, GameSessionResponseDTO)
 
-    async def update(
-        self,
-        session_id: UUID,
-        dto: UpdateGameSessionDTO,
-    ) -> GameSessionResponseDTO:
-        """Обновляет контентные поля сессии (title, description, image_url, даты).
-
-        Статус через этот метод не меняется — для этого есть start/complete/cancel/invalidate.
-        """
+    async def update(self, session_id: UUID, dto: UpdateGameSessionDTO) -> GameSessionResponseDTO:
         session = await self._get_or_raise(session_id)
 
         if dto.title is not None:
@@ -125,11 +108,16 @@ class GameSessionService:
         updated = await self.repo.update(session)
         return Mapper.entity_to_dto(updated, GameSessionResponseDTO)
 
-    async def start(self, session_id: UUID) -> GameSessionResponseDTO:
-        """Переводит сессию в статус ACTIVE.
+    async def start(
+        self,
+        session_id: UUID,
+        attending_user_ids: Optional[list[int]] = None,
+    ) -> GameSessionResponseDTO:
+        """Переводит сессию в ACTIVE и создаёт Discord-состояние.
 
-        Перед переходом проверяет, что для данной игры нет другой ACTIVE-сессии.
-        Если есть — бросает GameSessionAlreadyActiveException.
+        attending_user_ids:
+            - Discord: передаётся после завершения View выбора игроков
+            - Сайт: передаётся из принятых игроков игры (PlayerStatusEnum.ACCEPTED)
         """
         session = await self._get_or_raise(session_id)
         self._check_transition(session.status, GameSessionStatusEnum.ACTIVE)
@@ -139,38 +127,53 @@ class GameSessionService:
             raise GameSessionAlreadyActiveException()
 
         updated = await self.repo.update_status(session_id, GameSessionStatusEnum.ACTIVE)
+        await self.repo.create_discord_state(
+            session_id=session_id,
+            attending_user_ids=attending_user_ids or [],
+        )
         return Mapper.entity_to_dto(updated, GameSessionResponseDTO)
 
     async def complete(self, session_id: UUID) -> GameSessionResponseDTO:
-        """Переводит сессию в статус COMPLETED."""
+        """Переводит сессию в COMPLETED и удаляет Discord-состояние."""
         session = await self._get_or_raise(session_id)
         self._check_transition(session.status, GameSessionStatusEnum.COMPLETED)
 
         updated = await self.repo.update_status(session_id, GameSessionStatusEnum.COMPLETED)
+        await self.repo.delete_discord_state(session_id)
         return Mapper.entity_to_dto(updated, GameSessionResponseDTO)
 
     async def cancel(self, session_id: UUID) -> GameSessionResponseDTO:
-        """Переводит сессию в статус CANCELED.
-
-        Может выполнить автор игры или администратор.
-        Отменённые сессии не учитываются в нумерации.
-        """
+        """Переводит сессию в CANCELED и удаляет Discord-состояние."""
         session = await self._get_or_raise(session_id)
         self._check_transition(session.status, GameSessionStatusEnum.CANCELED)
 
         updated = await self.repo.update_status(session_id, GameSessionStatusEnum.CANCELED)
+        await self.repo.delete_discord_state(session_id)
         return Mapper.entity_to_dto(updated, GameSessionResponseDTO)
 
     async def invalidate(self, session_id: UUID) -> GameSessionResponseDTO:
-        """Переводит сессию в статус INVALID.
-
-        Доступно только MODERATOR и выше (проверка прав — на стороне роутера).
-        Помечает сессию недействительной (тестовая, ошибочно созданная и т.п.).
-        """
+        """Переводит сессию в INVALID. Доступно MODERATOR+."""
         session = await self._get_or_raise(session_id)
         self._check_transition(session.status, GameSessionStatusEnum.INVALID)
 
         updated = await self.repo.update_status(session_id, GameSessionStatusEnum.INVALID)
+        await self.repo.delete_discord_state(session_id)
+        return Mapper.entity_to_dto(updated, GameSessionResponseDTO)
+
+    async def link_discord_event(
+        self, session_id: UUID, discord_event_id: int,
+    ) -> GameSessionResponseDTO:
+        """Привязывает Discord Scheduled Event к сессии вручную (SUPPORT+)."""
+        session = await self._get_or_raise(session_id)
+
+        if session.discord_event_id and session.discord_event_id != discord_event_id:
+            raise SessionAlreadyLinkedToEventException()
+
+        existing = await self.repo.get_by_discord_event_id(discord_event_id)
+        if existing and existing.id != session_id:
+            raise EventAlreadyLinkedToSessionException()
+
+        updated = await self.repo.link_discord_event(session_id, discord_event_id)
         return Mapper.entity_to_dto(updated, GameSessionResponseDTO)
 
     # ── read ──────────────────────────────────────────────────────────────────
@@ -180,10 +183,7 @@ class GameSessionService:
         return Mapper.entity_to_dto(session, GameSessionResponseDTO)
 
     async def get_by_game_id(
-        self,
-        game_id: UUID,
-        page: int,
-        page_size: int,
+        self, game_id: UUID, page: int, page_size: int,
     ) -> PaginatedResponseDTO[GameSessionResponseDTO]:
         if not await self.game_repo.get_by_id(game_id):
             raise GameNotFoundException()
@@ -200,18 +200,45 @@ class GameSessionService:
             total_pages=(total + page_size - 1) // page_size,
         )
 
+    async def get_completed_by_game_id(
+        self,
+        game_id: UUID,
+        page: int,
+        page_size: int,
+        from_number: Optional[int] = None,
+        to_number: Optional[int] = None,
+    ) -> PaginatedResponseDTO[GameSessionResponseDTO]:
+        """Завершённые сессии с опциональной фильтрацией по диапазону номеров.
+
+        from_number / to_number используются командой публикации сессий в Discord.
+        """
+        if not await self.game_repo.get_by_id(game_id):
+            raise GameNotFoundException()
+
+        offset = (page - 1) * page_size
+        items = await self.repo.get_completed_by_game_id(
+            game_id, offset=offset, limit=page_size,
+            from_number=from_number, to_number=to_number,
+        )
+        total = await self.repo.count_completed_by_game_id(
+            game_id, from_number=from_number, to_number=to_number,
+        )
+
+        return PaginatedResponseDTO(
+            items=[Mapper.entity_to_dto(s, GameSessionResponseDTO) for s in items],
+            total=total,
+            page=page,
+            page_size=page_size,
+            total_pages=(total + page_size - 1) // page_size,
+        )
+
     async def get_active_by_game_id(self, game_id: UUID) -> GameSessionResponseDTO:
-        """Возвращает активную сессию игры или бросает исключение, если её нет."""
         session = await self.repo.get_active_by_game_id(game_id)
         if not session:
             raise GameSessionNotFoundException()
         return Mapper.entity_to_dto(session, GameSessionResponseDTO)
 
-    async def get_by_discord_event_id(
-        self,
-        discord_event_id: int,
-    ) -> GameSessionResponseDTO:
-        """Возвращает сессию по ID Discord Scheduled Event."""
+    async def get_by_discord_event_id(self, discord_event_id: int) -> GameSessionResponseDTO:
         session = await self.repo.get_by_discord_event_id(discord_event_id)
         if not session:
             raise GameSessionNotFoundException()

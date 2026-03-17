@@ -25,6 +25,7 @@ __all__=[
     "CreateGameSessionDTO",
     "UpdateGameSessionDTO",
     "GameSessionResponseDTO",
+    "GuildSettingsResponseDTO"
 ]
 
 from app.dto.auth_dtos import DiscordDTO, SecondaryEmailDTO, ChangePasswordDTO, RefreshRequestDTO, LoginRequestDTO, \
@@ -37,3 +38,4 @@ from app.dto.game_dtos import UpdateGameDTO, CreateGameDTO, GameResponseDTO, Gam
     GamePlayerResponseDTO
 from app.dto.game_session_dtos import GameSessionResponseDTO, UpdateGameSessionDTO, CreateGameSessionDTO
 from app.dto.game_system_dtos import GameSystemResponseDTO, UpdateGameSystemDTO, CreateGameSystemDTO
+from app.dto.guild_discord_settings_dtos import GuildSettingsResponseDTO

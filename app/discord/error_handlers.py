@@ -170,6 +170,32 @@ _ERROR_MAP: dict[type[Exception], tuple[str, str, disnake.Color]] = {
         "Произошла ошибка при работе с игровой системой. Попробуйте позже.",
         disnake.Color.red(),
     ),
+# ── Discord exceptions ───────────────────────────────────
+    GuildSettingsNotFoundException: (
+        "Настройки не найдены",
+        "Настройки для этого сервера ещё не заданы.",
+        disnake.Color.yellow(),
+    ),
+    GameNotFoundByEventTitleException: (
+        "Игра не найдена",
+        "Не удалось найти игру по названию события. Используй /session link для ручной привязки.",
+        disnake.Color.yellow(),
+    ),
+    SessionAlreadyLinkedToEventException: (
+        "Сессия уже привязана",
+        "Эта сессия уже привязана к другому Discord событию.",
+        disnake.Color.orange(),
+    ),
+    EventAlreadyLinkedToSessionException: (
+        "Событие уже привязано",
+        "Это Discord событие уже привязано к другой сессии.",
+        disnake.Color.orange(),
+    ),
+    DiscordError: (
+        "Ошибка Discord интеграции",
+        "Произошла ошибка при работе с Discord. Попробуйте позже.",
+        disnake.Color.red(),
+    ),
     # ── Common exceptions ────────────────────────────────────
     NotFoundError: (
         "Не найдено",

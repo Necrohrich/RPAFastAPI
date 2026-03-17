@@ -35,7 +35,12 @@ __all__ = [
     "GameSessionError",
     "GameSessionNotFoundException",
     "GameSessionAlreadyActiveException",
-    "GameSessionInvalidStatusTransitionException"
+    "GameSessionInvalidStatusTransitionException",
+    "DiscordError",
+    "GuildSettingsNotFoundException",
+    "GameNotFoundByEventTitleException",
+    "SessionAlreadyLinkedToEventException",
+    "EventAlreadyLinkedToSessionException",
 ]
 
 
@@ -43,6 +48,9 @@ from app.exceptions.auth_exceptions import TokenExpired, AuthError, InvalidToken
 from app.exceptions.character_exceptions import CharacterPermissionException, CharacterGameSystemMismatchException, \
     CharacterAlreadyExistsException, CharacterNotFoundException, CharacterError, CharacterGameSystemAlreadySetException
 from app.exceptions.common_exceptions import PermissionDenied, NotFoundError, ApplicationError, ValidationError
+from app.exceptions.discord_exceptions import EventAlreadyLinkedToSessionException, \
+    SessionAlreadyLinkedToEventException, GameNotFoundByEventTitleException, GuildSettingsNotFoundException, \
+    DiscordError
 from app.exceptions.game_exceptions import NotGameAuthorException, PlayerNotFoundException, \
     PlayerAlreadyInGameException, GameAlreadyExistsException, GameNotFoundException, GameError
 from app.exceptions.game_session_exceptions import GameSessionError, \
