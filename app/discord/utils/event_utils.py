@@ -10,18 +10,17 @@ logger = logging.getLogger(__name__)
 
 
 def get_event_image_url(event: disnake.GuildScheduledEvent) -> str:
-    """
-    Возвращает URL обложки события или пустую строку.
-
-    Использует getattr для совместимости с разными версиями disnake:
-    атрибут cover_image появился в disnake 2.x, но IDE может его не видеть
-    если stubs устарели или установлена старая версия пакета.
-    """
+    # Стандартный атрибут (для новых версий disnake)
     image: disnake.Asset | None = getattr(event, "cover_image", None)
     if image is not None:
         return image.url
-    return ""
 
+    # Fallback: _image содержит хэш напрямую из gateway payload
+    image_hash: str | None = getattr(event, "_image", None)
+    if image_hash:
+        return f"https://cdn.discordapp.com/guild-events/{event.id}/{image_hash}.webp?size=1024"
+
+    return ""
 
 async def notify_game_channel(
     bot: commands.InteractionBot,

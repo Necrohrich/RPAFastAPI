@@ -42,10 +42,10 @@ class GameSessionCog(commands.Cog):
     def __init__(self, bot: commands.InteractionBot) -> None:
         self.bot = bot
 
-    # ── on_scheduled_event_create ────────────────────────────────────────────
+    # ── on_guild_scheduled_event_create ──────────────────────────────────────
 
     @commands.Cog.listener()
-    async def on_scheduled_event_create(self, event: disnake.GuildScheduledEvent) -> None:
+    async def on_guild_scheduled_event_create(self, event: disnake.GuildScheduledEvent) -> None:
         logger.info("[event_create] id=%s title=%r guild=%s", event.id, event.name, event.guild_id)
 
         async with game_session_service_ctx() as service:
@@ -81,10 +81,10 @@ class GameSessionCog(commands.Cog):
                     color=disnake.Color.blue(),
                 )
 
-    # ── on_scheduled_event_update ────────────────────────────────────────────
+    # ── on_guild_scheduled_event_update ──────────────────────────────────────
 
     @commands.Cog.listener()
-    async def on_scheduled_event_update(
+    async def on_guild_scheduled_event_update(
         self,
         before: disnake.GuildScheduledEvent,
         after: disnake.GuildScheduledEvent,
@@ -96,7 +96,23 @@ class GameSessionCog(commands.Cog):
             if not session:
                 return
 
-            # ── Отмена ──────────────────────────────────────────────────────
+            # ── Старт ────────────────────────────────────────────────────────
+            if (
+                after.status == disnake.GuildScheduledEventStatus.active
+                and before.status != disnake.GuildScheduledEventStatus.active
+            ):
+                await self._handle_event_start(after, service, session)
+                return
+
+            # ── Завершение ───────────────────────────────────────────────────
+            if (
+                after.status == disnake.GuildScheduledEventStatus.completed
+                and before.status != disnake.GuildScheduledEventStatus.completed
+            ):
+                await self._handle_event_end(after, service, session)
+                return
+
+            # ── Отмена ───────────────────────────────────────────────────────
             if (
                 after.status == disnake.GuildScheduledEventStatus.canceled
                 and before.status != disnake.GuildScheduledEventStatus.canceled
@@ -138,119 +154,112 @@ class GameSessionCog(commands.Cog):
                 await service.update(session.id, UpdateGameSessionDTO(**changed))
                 logger.info("[event_update] Session %s updated: %s", session.id, list(changed.keys()))
 
-    # ── on_scheduled_event_start ─────────────────────────────────────────────
+    # ── _handle_event_start ───────────────────────────────────────────────────
 
-    @commands.Cog.listener()
-    async def on_scheduled_event_start(self, event: disnake.GuildScheduledEvent) -> None:
+    async def _handle_event_start(self, event: disnake.GuildScheduledEvent, service, session) -> None:
         logger.info("[event_start] id=%s title=%r guild=%s", event.id, event.name, event.guild_id)
 
-        async with game_session_service_ctx() as service:
-            session = await service.repo.get_by_discord_event_id(event.id)
-            if not session:
-                logger.info("[event_start] No session linked to event %s — skipping", event.id)
-                return
+        game = await service.game_repo.get_by_id(session.game_id)
+        discord_state = await service.repo.get_discord_state(session.id)
 
-            game = await service.game_repo.get_by_id(session.game_id)
-            discord_state = await service.repo.get_discord_state(session.id)
-
-            # ── Сценарий A: сессия уже запущена через сайт ──────────────────
-            if discord_state is not None:
-                logger.info("[event_start] Session %s already active (via site)", session.id)
-                attending_ids: list[int] = discord_state.get("attending_user_ids", [])
-                if game:
-                    anchor = await _get_role_anchor(event.guild_id)
-                    char_names = await service.repo.get_player_characters(game.id, attending_ids)
-                    await assign_session_roles(
-                        event.guild, game, session, attending_ids, char_names, anchor, service
-                    )
-                    await notify_game_channel(
-                        self.bot,
-                        channel_id=game.discord_main_channel_id,
-                        role_id=game.discord_role_id,
-                        text=f"🎲 Сессия #{session.session_number} началась!",
-                        color=disnake.Color.green(),
-                    )
-                return
-
-            # ── Сценарий B: AttendanceView ───────────────────────────────────
-            channel_id = game.discord_main_channel_id if game else None
-            channel = self.bot.get_channel(channel_id) if channel_id else None
-
-            if not channel:
-                logger.warning(
-                    "[event_start] No channel for game %s — starting with empty attendance",
-                    session.game_id,
+        # ── Сценарий A: сессия уже запущена через сайт ──────────────────────
+        if discord_state is not None:
+            logger.info("[event_start] Session %s already active (via site)", session.id)
+            attending_ids: list[int] = discord_state.get("attending_user_ids", [])
+            if game:
+                anchor = await _get_role_anchor(event.guild_id)
+                char_names = await service.repo.get_player_characters(game.id, attending_ids)
+                await assign_session_roles(
+                    event.guild, game, session, attending_ids, char_names, anchor, service
                 )
-                await service.start(session.id, attending_user_ids=[])
-                return
+                await notify_game_channel(
+                    self.bot,
+                    channel_id=game.discord_main_channel_id,
+                    role_id=game.discord_role_id,
+                    text=f"🎲 Сессия #{session.session_number} началась!",
+                    color=disnake.Color.green(),
+                )
+            return
 
-            player_entries = await service.repo.get_accepted_players_with_discord(session.game_id)
+        # ── Сценарий B: AttendanceView ────────────────────────────────────────
+        channel_id = game.discord_main_channel_id if game else None
+        channel = self.bot.get_channel(channel_id) if channel_id else None
 
-            if not player_entries:
-                logger.info("[event_start] No players with discord_id for game %s", session.game_id)
-                await service.start(session.id, attending_user_ids=[])
-                if game:
-                    await notify_game_channel(
-                        self.bot,
-                        channel_id=game.discord_main_channel_id,
-                        role_id=game.discord_role_id,
-                        text=f"🎲 Сессия #{session.session_number} началась!",
-                        color=disnake.Color.green(),
-                    )
-                return
-
-            gm_discord_id = game.gm_id if game else None
-            if not gm_discord_id:
-                logger.warning("[event_start] No gm_id for game %s — all players present", session.game_id)
-                all_ids = [did for did, _ in player_entries]
-                await service.start(session.id, attending_user_ids=all_ids)
-                if game:
-                    anchor = await _get_role_anchor(event.guild_id)
-                    char_names = await service.repo.get_player_characters(game.id, all_ids)
-                    await assign_session_roles(event.guild, game, session, all_ids, char_names, anchor, service)
-                    await notify_game_channel(
-                        self.bot,
-                        channel_id=game.discord_main_channel_id,
-                        role_id=game.discord_role_id,
-                        text=f"🎲 Сессия #{session.session_number} началась!",
-                        color=disnake.Color.green(),
-                    )
-                return
-
-            # Отправляем AttendanceView
-            view = AttendanceView(
-                session=session,
-                game=game,
-                player_entries=player_entries,
-                gm_discord_id=gm_discord_id,
+        if not channel:
+            logger.warning(
+                "[event_start] No channel for game %s — starting with empty attendance",
+                session.game_id,
             )
-            msg = await channel.send(embed=view.current_embed(), view=view)
-            view.set_message(msg)
+            await service.start(session.id, attending_user_ids=[])
+            return
 
-            await service.repo.create_discord_state(
-                session_id=session.id,
-                attendance_message_id=msg.id,
-            )
-            logger.info("[event_start] AttendanceView sent, session=%s msg=%s", session.id, msg.id)
+        player_entries = await service.repo.get_accepted_players_with_discord(session.game_id)
 
-        # view.wait() — ВНЕ контекста service
+        if not player_entries:
+            logger.info("[event_start] No players with discord_id for game %s", session.game_id)
+            await service.start(session.id, attending_user_ids=[])
+            if game:
+                await notify_game_channel(
+                    self.bot,
+                    channel_id=game.discord_main_channel_id,
+                    role_id=game.discord_role_id,
+                    text=f"🎲 Сессия #{session.session_number} началась!",
+                    color=disnake.Color.green(),
+                )
+            return
+
+        gm_discord_id = game.gm_id if game else None
+        if not gm_discord_id:
+            logger.warning("[event_start] No gm_id for game %s — all players present", session.game_id)
+            all_ids = [did for did, _ in player_entries]
+            await service.start(session.id, attending_user_ids=all_ids)
+            if game:
+                anchor = await _get_role_anchor(event.guild_id)
+                char_names = await service.repo.get_player_characters(game.id, all_ids)
+                await assign_session_roles(event.guild, game, session, all_ids, char_names, anchor, service)
+                await notify_game_channel(
+                    self.bot,
+                    channel_id=game.discord_main_channel_id,
+                    role_id=game.discord_role_id,
+                    text=f"🎲 Сессия #{session.session_number} началась!",
+                    color=disnake.Color.green(),
+                )
+            return
+
+        # Отправляем AttendanceView
+        view = AttendanceView(
+            session=session,
+            game=game,
+            player_entries=player_entries,
+            gm_discord_id=gm_discord_id,
+        )
+        msg = await channel.send(embed=view.current_embed(), view=view)
+        view.set_message(msg)
+
+        await service.repo.create_discord_state(
+            session_id=session.id,
+            attendance_message_id=msg.id,
+        )
+        logger.info("[event_start] AttendanceView sent, session=%s msg=%s", session.id, msg.id)
+
+        # view.wait() — ВНЕ контекста service (вызывается из update, service уже закрыт)
         await view.wait()
 
-        async with game_session_service_ctx() as service:
-            session = await service.repo.get_by_discord_event_id(event.id)
+        async with game_session_service_ctx() as svc:
+            session = await svc.repo.get_by_discord_event_id(event.id)
             if not session:
                 logger.info("[event_start] Session canceled during AttendanceView — skipping start")
                 return
 
             attending_ids = view.attending_ids
-            await service.start(session.id, attending_user_ids=attending_ids)
+            await svc.start(session.id, attending_user_ids=attending_ids)
             logger.info("[event_start] Session %s started, attending=%d", session.id, len(attending_ids))
 
-            game = await service.game_repo.get_by_id(session.game_id)
+            game = await svc.game_repo.get_by_id(session.game_id)
             if game:
                 anchor = await _get_role_anchor(event.guild_id)
-                char_names = await service.repo.get_player_characters(game.id, attending_ids)
-                await assign_session_roles(event.guild, game, session, attending_ids, char_names, anchor, service)
+                char_names = await svc.repo.get_player_characters(game.id, attending_ids)
+                await assign_session_roles(event.guild, game, session, attending_ids, char_names, anchor, svc)
                 await notify_game_channel(
                     self.bot,
                     channel_id=game.discord_main_channel_id,
@@ -259,23 +268,16 @@ class GameSessionCog(commands.Cog):
                     color=disnake.Color.green(),
                 )
 
-    # ── on_scheduled_event_end ───────────────────────────────────────────────
+    # ── _handle_event_end ─────────────────────────────────────────────────────
 
-    @commands.Cog.listener()
-    async def on_scheduled_event_end(self, event: disnake.GuildScheduledEvent) -> None:
+    async def _handle_event_end(self, event: disnake.GuildScheduledEvent, service, session) -> None:
         logger.info("[event_end] id=%s title=%r guild=%s", event.id, event.name, event.guild_id)
 
-        async with game_session_service_ctx() as service:
-            session = await service.repo.get_by_discord_event_id(event.id)
-            if not session:
-                logger.info("[event_end] No session linked to event %s — skipping", event.id)
-                return
+        discord_state = await service.repo.get_discord_state(session.id)
+        game = await service.game_repo.get_by_id(session.game_id)
 
-            discord_state = await service.repo.get_discord_state(session.id)
-            game = await service.game_repo.get_by_id(session.game_id)
-
-            await service.complete(session.id)
-            logger.info("[event_end] Session %s completed", session.id)
+        await service.complete(session.id)
+        logger.info("[event_end] Session %s completed", session.id)
 
         if discord_state:
             await restore_after_session(event.guild, discord_state)
@@ -289,12 +291,12 @@ class GameSessionCog(commands.Cog):
                 color=disnake.Color.green(),
             )
 
-    # ── /session ─────────────────────────────────────────────────────────────
+    # ── /session ──────────────────────────────────────────────────────────────
 
     @commands.slash_command(name="session", description="Команды для управления игровыми сессиями")
     async def session(self, inter: disnake.ApplicationCommandInteraction) -> None: ...
 
-    # ── /session link ────────────────────────────────────────────────────────
+    # ── /session link ─────────────────────────────────────────────────────────
 
     @session.sub_command(name="link", description="Привязать Discord-событие к сессии [SUPPORT+]")
     @require_role(PlatformPolicies.require_support)
@@ -357,7 +359,7 @@ class GameSessionCog(commands.Cog):
         )
         await inter.followup.send("Выберите сессию:", view=view, ephemeral=True)
 
-    # ── /session cancel ──────────────────────────────────────────────────────
+    # ── /session cancel ───────────────────────────────────────────────────────
 
     @session.sub_command(name="cancel", description="Отменить игровую сессию [MODERATOR+]")
     @require_role(PlatformPolicies.require_moderator)
@@ -415,7 +417,7 @@ class GameSessionCog(commands.Cog):
         )
         await inter.followup.send("Выберите сессию:", view=view, ephemeral=True)
 
-    # ── /session invalidate ──────────────────────────────────────────────────
+    # ── /session invalidate ───────────────────────────────────────────────────
 
     @session.sub_command(name="invalidate", description="Пометить сессию как недействительную [MODERATOR+]")
     @require_role(PlatformPolicies.require_moderator)
@@ -470,7 +472,7 @@ class GameSessionCog(commands.Cog):
         )
         await inter.followup.send("Выберите сессию:", view=view, ephemeral=True)
 
-    # ── /session publish ─────────────────────────────────────────────────────
+    # ── /session publish ──────────────────────────────────────────────────────
 
     @session.sub_command(name="publish", description="Опубликовать завершённые сессии игры [SUPPORT+]")
     @require_role(PlatformPolicies.require_support)

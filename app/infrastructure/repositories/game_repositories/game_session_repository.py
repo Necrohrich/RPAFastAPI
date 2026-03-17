@@ -2,7 +2,7 @@
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import select, update, delete, func, text
+from sqlalchemy import select, update, delete, func, literal
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.entities import GameSession
@@ -195,15 +195,11 @@ class GameSessionRepository(IGameSessionRepository):
         return (max_number or 0) + 1
 
     async def find_game_id_by_event_title(self, event_title: str) -> Optional[UUID]:
-        """Ищет активную игру, название которой содержится в строке event_title (ILIKE)."""
+        needle = event_title.lower()
         stmt = (
             select(GameModel.id)
             .where(GameModel.deleted_at.is_(None))
-            .where(
-                text(":title ILIKE '%' || lower(games.name) || '%'").bindparams(
-                    title=event_title.lower()
-                )
-            )
+            .where(func.lower(literal(needle)).contains(func.lower(GameModel.name)))
             .limit(1)
         )
         result = await self.session.execute(stmt)
