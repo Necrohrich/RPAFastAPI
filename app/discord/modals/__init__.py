@@ -1,6 +1,5 @@
 __all__=[
     "BaseModal",
-    "AttachDiscordIdModal",
     "AttachEmailModal",
     "ChangePasswordModal",
     "LoginModal",
@@ -25,4 +24,3 @@ from app.discord.modals.login_modal import LoginModal
 from app.discord.modals.register_modal import RegisterModal
 
 from app.discord.modals.select_search_modal import SelectSearchModal
-from app.discord.modals.attach_discord_id_modal import AttachDiscordIdModal

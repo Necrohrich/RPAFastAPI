@@ -15,6 +15,7 @@ class IDiscordRepository(ABC):
         Методы:
             * attach_priority — привязывает основной (priority) Discord ID к пользователю
             * attach_secondary — привязывает вторичный Discord ID
+            * detach_secondary - сбрасывает вторичный Discord ID
             * get_user_by_discord_id — возвращает пользователя по Discord ID
     """
 
@@ -23,5 +24,9 @@ class IDiscordRepository(ABC):
 
     @abstractmethod
     async def attach_secondary(self, user_id: UUID, discord_id: int) -> None: ...
+
+    @abstractmethod
+    async def detach_secondary(self, user_id: UUID) -> None: ...
+
     @abstractmethod
     async def get_user_by_discord_id(self, discord_id: int) -> Optional[User]: ...

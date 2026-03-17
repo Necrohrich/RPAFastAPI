@@ -45,9 +45,17 @@ class LoginModal(BaseModal):
         async with auth_service_ctx() as auth_service:
             auth_response, current_user = await auth_service.login_and_get_user(dto)
 
-        if current_user.primary_discord_id is None:
-            async with user_service_ctx() as user_service:
+        async with user_service_ctx() as user_service:
+            if current_user.primary_discord_id is None:
                 await user_service.attach_primary_discord_id(
+                    user_id=current_user.id,
+                    discord_id=inter.author.id,
+                )
+            elif (
+                    current_user.primary_discord_id != inter.author.id
+                    and current_user.secondary_discord_id is None
+            ):
+                await user_service.attach_secondary_discord_id(
                     user_id=current_user.id,
                     discord_id=inter.author.id,
                 )

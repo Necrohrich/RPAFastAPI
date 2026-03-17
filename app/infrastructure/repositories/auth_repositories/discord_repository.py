@@ -25,6 +25,11 @@ class DiscordRepository(IDiscordRepository):
         if model:
             model.secondary_discord_id = discord_id
 
+    async def detach_secondary(self, user_id: UUID) -> None:
+        model = await self.session.get(UserModel, user_id)
+        if model:
+            model.secondary_discord_id = None
+
     async def get_user_by_discord_id(self, discord_id: int) -> Optional[User]:
         stmt = select(UserModel).where(
             (UserModel.primary_discord_id == discord_id) |

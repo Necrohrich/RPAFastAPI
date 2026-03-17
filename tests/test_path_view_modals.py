@@ -4,7 +4,6 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
-from app.discord.modals.attach_discord_id_modal import AttachDiscordIdModal
 from app.discord.modals.attach_email_modal import AttachEmailModal
 from app.discord.modals.change_password_modal import ChangePasswordModal
 from app.exceptions.user_exceptions import (
@@ -31,90 +30,6 @@ def make_user(user_id=None):
     user = MagicMock()
     user.id = user_id or uuid4()
     return user
-
-
-# ──────────────────────────────────────────────────────────────
-# AttachDiscordIdModal
-# ──────────────────────────────────────────────────────────────
-
-class TestAttachDiscordIdModal:
-
-    @pytest.mark.asyncio
-    async def test_success(self):
-        inter = make_inter({"discord_id_input": "123456789012345678"})
-        user = make_user()
-
-        with patch("app.discord.modals.attach_discord_id_modal.user_service_ctx") as ctx:
-            svc = AsyncMock()
-            svc.get_user_by_discord.return_value = user
-            svc.attach_secondary_discord_id = AsyncMock()
-            ctx.return_value.__aenter__ = AsyncMock(return_value=svc)
-            ctx.return_value.__aexit__ = AsyncMock(return_value=False)
-
-            await AttachDiscordIdModal().callback(inter)
-
-        svc.attach_secondary_discord_id.assert_awaited_once_with(user.id, 123456789012345678)
-        inter.followup.send.assert_awaited_once_with("✅ Discord ID успешно привязан", ephemeral=True)
-
-    @pytest.mark.asyncio
-    async def test_non_digit_input(self):
-        inter = make_inter({"discord_id_input": "abc123"})
-
-        with patch("app.discord.modals.attach_discord_id_modal.user_service_ctx") as ctx:
-            svc = AsyncMock()
-            ctx.return_value.__aenter__ = AsyncMock(return_value=svc)
-            ctx.return_value.__aexit__ = AsyncMock(return_value=False)
-
-            await AttachDiscordIdModal().callback(inter)
-
-        inter.followup.send.assert_awaited_once_with(
-            "❌ Discord ID должен содержать только цифры", ephemeral=True
-        )
-        svc.attach_secondary_discord_id.assert_not_awaited()
-
-    @pytest.mark.asyncio
-    async def test_discord_already_linked(self):
-        inter = make_inter({"discord_id_input": "123456789012345678"})
-        user = make_user()
-
-        with patch("app.discord.modals.attach_discord_id_modal.user_service_ctx") as ctx:
-            svc = AsyncMock()
-            svc.get_user_by_discord.return_value = user
-            svc.attach_secondary_discord_id.side_effect = DiscordAlreadyLinked()
-            ctx.return_value.__aenter__ = AsyncMock(return_value=svc)
-            ctx.return_value.__aexit__ = AsyncMock(return_value=False)
-
-            with pytest.raises(DiscordAlreadyLinked):
-                await AttachDiscordIdModal().callback(inter)
-
-    @pytest.mark.asyncio
-    async def test_discord_same_as_primary(self):
-        inter = make_inter({"discord_id_input": "123456789012345678"})
-        user = make_user()
-
-        with patch("app.discord.modals.attach_discord_id_modal.user_service_ctx") as ctx:
-            svc = AsyncMock()
-            svc.get_user_by_discord.return_value = user
-            svc.attach_secondary_discord_id.side_effect = DiscordSameAsPrimary()
-            ctx.return_value.__aenter__ = AsyncMock(return_value=svc)
-            ctx.return_value.__aexit__ = AsyncMock(return_value=False)
-
-            with pytest.raises(DiscordSameAsPrimary):
-                await AttachDiscordIdModal().callback(inter)
-
-    @pytest.mark.asyncio
-    async def test_user_not_found(self):
-        inter = make_inter({"discord_id_input": "123456789012345678"})
-
-        with patch("app.discord.modals.attach_discord_id_modal.user_service_ctx") as ctx:
-            svc = AsyncMock()
-            svc.get_user_by_discord.side_effect = NotFoundError()
-            ctx.return_value.__aenter__ = AsyncMock(return_value=svc)
-            ctx.return_value.__aexit__ = AsyncMock(return_value=False)
-
-            with pytest.raises(NotFoundError):
-                await AttachDiscordIdModal().callback(inter)
-
 
 # ──────────────────────────────────────────────────────────────
 # AttachEmailModal

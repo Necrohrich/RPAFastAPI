@@ -45,13 +45,13 @@ async def attach_primary_discord_id(
     await service.attach_primary_discord_id(user_id=current_user.id, discord_id=dto.discord_id)
 
 
-@router.patch("/me/secondary-discord-id", status_code=status.HTTP_204_NO_CONTENT)
-async def attach_secondary_discord_id(
-    dto: DiscordDTO,
-    current_user: UserDTO = Depends(get_current_user),
-    service: UserService = Depends(get_user_service),
-):
-    await service.attach_secondary_discord_id(user_id=current_user.id, discord_id=dto.discord_id)
+# @router.patch("/me/secondary-discord-id", status_code=status.HTTP_204_NO_CONTENT)
+# async def attach_secondary_discord_id(
+#     dto: DiscordDTO,
+#     current_user: UserDTO = Depends(get_current_user),
+#     service: UserService = Depends(get_user_service),
+# ):
+#     await service.attach_secondary_discord_id(user_id=current_user.id, discord_id=dto.discord_id)
 
 
 # ────────────────────────────────────────────────────────────

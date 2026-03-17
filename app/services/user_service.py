@@ -132,6 +132,12 @@ class UserService:
 
         await self.discord_repo.attach_secondary(user_id, discord_id)
 
+    async def detach_secondary_discord_id(self, user_id: UUID):
+        user = await self.user_repo.get_by_id(user_id)
+        if not user:
+            raise NotFoundError()
+        await self.discord_repo.detach_secondary(user_id)
+
     # todo: добавить потом в роутер
     async def get_by_id(self, user_id: UUID) -> UserDTO:
         user = await self.user_repo.get_by_id(user_id)
