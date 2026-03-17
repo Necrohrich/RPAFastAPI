@@ -21,7 +21,10 @@ __all__=[
     "UpdateGameDTO",
     "GameResponseDTO",
     "GameDetailedResponseDTO",
-    "GamePlayerResponseDTO"
+    "GamePlayerResponseDTO",
+    "CreateGameSessionDTO",
+    "UpdateGameSessionDTO",
+    "GameSessionResponseDTO",
 ]
 
 from app.dto.auth_dtos import DiscordDTO, SecondaryEmailDTO, ChangePasswordDTO, RefreshRequestDTO, LoginRequestDTO, \
@@ -32,4 +35,5 @@ from app.dto.character_dtos import UpdateCharacterDTO, CreateCharacterDTO, Chara
 from app.dto.common_dtos import PaginatedResponseDTO
 from app.dto.game_dtos import UpdateGameDTO, CreateGameDTO, GameResponseDTO, GameDetailedResponseDTO, \
     GamePlayerResponseDTO
+from app.dto.game_session_dtos import GameSessionResponseDTO, UpdateGameSessionDTO, CreateGameSessionDTO
 from app.dto.game_system_dtos import GameSystemResponseDTO, UpdateGameSystemDTO, CreateGameSystemDTO
