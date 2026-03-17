@@ -308,3 +308,29 @@ class GameSessionRepository(IGameSessionRepository):
         )
         result = await self.session.execute(stmt)
         return {row.primary_discord_id: row.name for row in result.all()}
+
+    async def get_by_game_id_and_statuses(
+            self,
+            game_id: UUID,
+            statuses: list[GameSessionStatusEnum],
+    ) -> list[GameSession]:
+        stmt = (
+            select(GameSessionModel)
+            .where(GameSessionModel.game_id == game_id)
+            .where(GameSessionModel.status.in_(statuses))
+            .order_by(GameSessionModel.session_number.asc())
+        )
+        result = await self.session.execute(stmt)
+        return [Mapper.model_to_entity(m, GameSession) for m in result.scalars().all()]
+
+    async def get_by_statuses(
+            self,
+            statuses: list[GameSessionStatusEnum],
+    ) -> list[GameSession]:
+        stmt = (
+            select(GameSessionModel)
+            .where(GameSessionModel.status.in_(statuses))
+            .order_by(GameSessionModel.game_id, GameSessionModel.session_number.asc())
+        )
+        result = await self.session.execute(stmt)
+        return [Mapper.model_to_entity(m, GameSession) for m in result.scalars().all()]

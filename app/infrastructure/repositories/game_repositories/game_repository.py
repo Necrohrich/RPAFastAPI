@@ -111,6 +111,16 @@ class GameRepository(IGameRepository):
             return None
         return Mapper.model_to_entity(model, Game)
 
+    async def get_list_by_author_discord_id(self, discord_id: int) -> list[Game]:
+        stmt = (
+            select(GameModel)
+            .where(GameModel.deleted_at.is_(None))
+            .where(GameModel.gm_id == discord_id)
+            .order_by(GameModel.name)
+        )
+        result = await self.session.execute(stmt)
+        return [Mapper.model_to_entity(m, Game) for m in result.scalars().all()]
+
     async def update(self, game: Game) -> Game:
         stmt = (
             update(GameModel)

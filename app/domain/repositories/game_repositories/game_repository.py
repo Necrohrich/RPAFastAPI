@@ -21,6 +21,7 @@ class IGameRepository(ABC):
         * get_by_author_id — возвращает игры пользователя по его UUID; поддерживает фильтрацию по deleted_at через include_deleted и only_deleted
         * count_by_author_id — возвращает число игр пользователя; поддерживает те же флаги
         * get_by_name_and_author_id — возвращает игру по названию и UUID автора
+        * get_list_by_author_discord_id - возвращает все активные игры, у которых gm_id == discord_id. Для Discord-команд
         * update — обновляет поля игры и возвращает обновлённую сущность
         * soft_delete — помечает игру удалённой (deleted_at = now), физически не удаляет
         * restore — снимает метку удаления с игры (deleted_at = NULL), только для администраторов
@@ -63,6 +64,9 @@ class IGameRepository(ABC):
 
     @abstractmethod
     async def get_by_name_and_author_id(self, author_id: UUID, name: str) -> Optional[Game]: ...
+
+    @abstractmethod
+    async def get_list_by_author_discord_id(self, discord_id: int) -> list[Game]: ...
 
     @abstractmethod
     async def update(self, game: Game) -> Game: ...

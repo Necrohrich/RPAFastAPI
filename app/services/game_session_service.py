@@ -243,3 +243,48 @@ class GameSessionService:
         if not session:
             raise GameSessionNotFoundException()
         return Mapper.entity_to_dto(session, GameSessionResponseDTO)
+
+    async def get_created_list_by_author_discord_id(self, discord_id: int) -> list[GameSessionResponseDTO]:
+        """
+        CREATED-сессии игр пользователя (по gm_id/discord_id).
+        Используется в /session link.
+        """
+        games = await self.game_repo.get_list_by_author_discord_id(discord_id)
+        result: list[GameSessionResponseDTO] = []
+        for game in games:
+            sessions = await self.repo.get_by_game_id_and_statuses(
+                game.id,
+                statuses=[GameSessionStatusEnum.CREATED],
+            )
+            result.extend(Mapper.entity_to_dto(s, GameSessionResponseDTO) for s in sessions)
+        return result
+
+    async def get_active_or_created_list_by_author_discord_id(self, discord_id: int) -> list[GameSessionResponseDTO]:
+        """
+        ACTIVE + CREATED сессии игр пользователя (по gm_id/discord_id).
+        Используется в /session cancel (автор игры).
+        """
+        games = await self.game_repo.get_list_by_author_discord_id(discord_id)
+        result: list[GameSessionResponseDTO] = []
+        for game in games:
+            sessions = await self.repo.get_by_game_id_and_statuses(
+                game.id,
+                statuses=[GameSessionStatusEnum.CREATED, GameSessionStatusEnum.ACTIVE],
+            )
+            result.extend(Mapper.entity_to_dto(s, GameSessionResponseDTO) for s in sessions)
+        return result
+
+    async def get_non_invalid_list(self) -> list[GameSessionResponseDTO]:
+        """
+        Все сессии кроме INVALID.
+        Используется в /session invalidate (MODERATOR+).
+        """
+        sessions = await self.repo.get_by_statuses(
+            statuses=[
+                GameSessionStatusEnum.CREATED,
+                GameSessionStatusEnum.ACTIVE,
+                GameSessionStatusEnum.COMPLETED,
+                GameSessionStatusEnum.CANCELED,
+            ]
+        )
+        return [Mapper.entity_to_dto(s, GameSessionResponseDTO) for s in sessions]

@@ -33,6 +33,8 @@ class IGameSessionRepository(ABC):
         * delete_discord_state — удаляет Discord-состояние (при завершении/отмене)
         * get_accepted_players_with_discord - возвращает список (primary_discord_id, login) для принятых игроков игры.
         * get_player_characters - возвращает маппинг {primary_discord_id: character_name} для участников.
+        * get_by_game_id_and_statuses - возвращает сессии игры с указанными статусами (без пагинации).
+        * get_by_statuses - возвращает все сессии с указанными статусами (без пагинации). Для MODERATOR+.
     """
 
     # ── Сессии ───────────────────────────────────────────────────────────────
@@ -132,3 +134,10 @@ class IGameSessionRepository(ABC):
 
     @abstractmethod
     async def get_player_characters(self, game_id: UUID, discord_ids: list[int]) -> dict[int, str]: ...
+
+    @abstractmethod
+    async def get_by_game_id_and_statuses(self, game_id: UUID, statuses: list[GameSessionStatusEnum]) \
+            -> list[GameSession]: ...
+
+    @abstractmethod
+    async def get_by_statuses(self, statuses: list[GameSessionStatusEnum]) -> list[GameSession]: ...

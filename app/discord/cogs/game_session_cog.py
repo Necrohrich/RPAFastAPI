@@ -2,11 +2,17 @@
 from __future__ import annotations
 
 import logging
+from uuid import UUID
 
 import disnake
 from disnake.ext import commands
 
-from app.discord.dependencies import game_session_service_ctx, guild_settings_service_ctx
+from app.discord.dependencies import (
+    game_session_service_ctx,
+    guild_settings_service_ctx,
+)
+from app.discord.embeds.build_session_publish_embed import build_session_publish_embed
+from app.discord.policies import require_role
 from app.discord.utils.event_utils import (
     get_event_image_url,
     notify_game_channel,
@@ -14,6 +20,8 @@ from app.discord.utils.event_utils import (
 )
 from app.discord.utils.session_roles import assign_session_roles, restore_after_session
 from app.discord.views.attendance_view import AttendanceView
+from app.discord.views import SelectView
+from app.domain.policies import PlatformPolicies
 from app.dto import CreateGameSessionDTO, UpdateGameSessionDTO
 from app.exceptions import GuildSettingsNotFoundException
 
@@ -219,18 +227,16 @@ class GameSessionCog(commands.Cog):
             msg = await channel.send(embed=view.current_embed(), view=view)
             view.set_message(msg)
 
-            # Сохраняем attendance_message_id — нужно при отмене через on_scheduled_event_update
             await service.repo.create_discord_state(
                 session_id=session.id,
                 attendance_message_id=msg.id,
             )
             logger.info("[event_start] AttendanceView sent, session=%s msg=%s", session.id, msg.id)
 
-        # view.wait() — ВНЕ контекста service: UoW не должен висеть открытым 30 минут
+        # view.wait() — ВНЕ контекста service
         await view.wait()
 
         async with game_session_service_ctx() as service:
-            # Перечитываем — сессия могла быть отменена пока висел View
             session = await service.repo.get_by_discord_event_id(event.id)
             if not session:
                 logger.info("[event_start] Session canceled during AttendanceView — skipping start")
@@ -265,14 +271,12 @@ class GameSessionCog(commands.Cog):
                 logger.info("[event_end] No session linked to event %s — skipping", event.id)
                 return
 
-            # Берём state ДО complete — сервис удалит его внутри
             discord_state = await service.repo.get_discord_state(session.id)
             game = await service.game_repo.get_by_id(session.game_id)
 
             await service.complete(session.id)
             logger.info("[event_end] Session %s completed", session.id)
 
-        # restore вызываем вне UoW — работает только с Discord API
         if discord_state:
             await restore_after_session(event.guild, discord_state)
 
@@ -284,6 +288,232 @@ class GameSessionCog(commands.Cog):
                 text=f"✅ Сессия #{session.session_number} завершена",
                 color=disnake.Color.green(),
             )
+
+    # ── /session ─────────────────────────────────────────────────────────────
+
+    @commands.slash_command(name="session", description="Команды для управления игровыми сессиями")
+    async def session(self, inter: disnake.ApplicationCommandInteraction) -> None: ...
+
+    # ── /session link ────────────────────────────────────────────────────────
+
+    @session.sub_command(name="link", description="Привязать Discord-событие к сессии [SUPPORT+]")
+    @require_role(PlatformPolicies.require_support)
+    async def session_link(
+        self,
+        inter: disnake.ApplicationCommandInteraction,
+        event_id: str = commands.Param(description="ID Discord Scheduled Event"),
+        session_id: str = commands.Param(default=None, description="UUID сессии (опционально)"),
+    ) -> None:
+        await inter.response.defer(ephemeral=True)
+
+        try:
+            discord_event_id = int(event_id)
+        except ValueError:
+            await inter.followup.send("❌ `event_id` должен быть числом.", ephemeral=True)
+            return
+
+        # Если session_id передан напрямую — используем его без SelectView
+        if session_id:
+            try:
+                sid = UUID(session_id)
+            except ValueError:
+                await inter.followup.send("❌ `session_id` должен быть UUID.", ephemeral=True)
+                return
+            async with game_session_service_ctx() as service:
+                linked = await service.link_discord_event(sid, discord_event_id)
+            await inter.followup.send(
+                f"✅ Сессия **#{linked.session_number}** «{linked.title}» привязана к событию `{discord_event_id}`.",
+                ephemeral=True,
+            )
+            return
+
+        # Иначе — SelectView с CREATED-сессиями игр пользователя
+        async with game_session_service_ctx() as service:
+            sessions = await service.get_created_list_by_author_discord_id(inter.author.id)
+
+        if not sessions:
+            await inter.followup.send(
+                "❌ У вас нет запланированных сессий (статус CREATED).", ephemeral=True
+            )
+            return
+
+        async def on_session_selected(
+            cb_inter: disnake.MessageInteraction, selected_id: UUID
+        ) -> None:
+            async with game_session_service_ctx() as svc:
+                selected_linked = await svc.link_discord_event(selected_id, discord_event_id)
+            await cb_inter.followup.send(
+                f"✅ Сессия **#{selected_linked.session_number}** "
+                f"«{selected_linked.title}» привязана к событию `{discord_event_id}`.",
+                ephemeral=True,
+            )
+
+        view = SelectView(
+            items=sessions,
+            display_field="title",
+            title="Выберите сессию для привязки",
+            callback=on_session_selected,
+            skippable=False,
+        )
+        await inter.followup.send("Выберите сессию:", view=view, ephemeral=True)
+
+    # ── /session cancel ──────────────────────────────────────────────────────
+
+    @session.sub_command(name="cancel", description="Отменить игровую сессию [MODERATOR+]")
+    @require_role(PlatformPolicies.require_moderator)
+    async def session_cancel(
+        self,
+        inter: disnake.ApplicationCommandInteraction,
+    ) -> None:
+        await inter.response.defer(ephemeral=True)
+
+        async with game_session_service_ctx() as service:
+            sessions = await service.get_non_invalid_list()
+            sessions = [s for s in sessions if s.status.value in ("CREATED", "ACTIVE")]
+
+        if not sessions:
+            await inter.followup.send(
+                "❌ Нет активных или запланированных сессий для отмены.", ephemeral=True
+            )
+            return
+
+        async def on_session_selected(
+            cb_inter: disnake.MessageInteraction, selected_id: UUID
+        ) -> None:
+            async with game_session_service_ctx() as svc:
+                discord_state = await svc.repo.get_discord_state(selected_id)
+                session = await svc.cancel(selected_id)
+                game = await svc.game_repo.get_by_id(session.game_id)
+
+            if discord_state and discord_state.get("attendance_message_id") and game:
+                await delete_message_safe(
+                    self.bot,
+                    channel_id=game.discord_main_channel_id,
+                    message_id=discord_state["attendance_message_id"],
+                )
+
+            if game:
+                await notify_game_channel(
+                    self.bot,
+                    channel_id=game.discord_main_channel_id,
+                    role_id=game.discord_role_id,
+                    text=f"❌ Сессия #{session.session_number} «{session.title}» отменена.",
+                    color=disnake.Color.red(),
+                )
+
+            await cb_inter.followup.send(
+                f"✅ Сессия **#{session.session_number}** «{session.title}» отменена.",
+                ephemeral=True,
+            )
+
+        view = SelectView(
+            items=sessions,
+            display_field="title",
+            title="Выберите сессию для отмены",
+            callback=on_session_selected,
+            skippable=False,
+        )
+        await inter.followup.send("Выберите сессию:", view=view, ephemeral=True)
+
+    # ── /session invalidate ──────────────────────────────────────────────────
+
+    @session.sub_command(name="invalidate", description="Пометить сессию как недействительную [MODERATOR+]")
+    @require_role(PlatformPolicies.require_moderator)
+    async def session_invalidate(
+        self,
+        inter: disnake.ApplicationCommandInteraction,
+    ) -> None:
+        await inter.response.defer(ephemeral=True)
+
+        async with game_session_service_ctx() as service:
+            sessions = await service.get_non_invalid_list()
+
+        if not sessions:
+            await inter.followup.send("❌ Нет сессий для инвалидации.", ephemeral=True)
+            return
+
+        async def on_session_selected(
+            cb_inter: disnake.MessageInteraction, selected_id: UUID
+        ) -> None:
+            async with game_session_service_ctx() as svc:
+                discord_state = await svc.repo.get_discord_state(selected_id)
+                session = await svc.invalidate(selected_id)
+                game = await svc.game_repo.get_by_id(session.game_id)
+
+            if discord_state and discord_state.get("attendance_message_id") and game:
+                await delete_message_safe(
+                    self.bot,
+                    channel_id=game.discord_main_channel_id,
+                    message_id=discord_state["attendance_message_id"],
+                )
+
+            if game:
+                await notify_game_channel(
+                    self.bot,
+                    channel_id=game.discord_main_channel_id,
+                    role_id=game.discord_role_id,
+                    text=f"⛔ Сессия #{session.session_number} «{session.title}» помечена как недействительная.",
+                    color=disnake.Color.dark_grey(),
+                )
+
+            await cb_inter.followup.send(
+                f"✅ Сессия **#{session.session_number}** «{session.title}» инвалидирована.",
+                ephemeral=True,
+            )
+
+        view = SelectView(
+            items=sessions,
+            display_field="title",
+            title="Выберите сессию для инвалидации",
+            callback=on_session_selected,
+            skippable=False,
+        )
+        await inter.followup.send("Выберите сессию:", view=view, ephemeral=True)
+
+    # ── /session publish ─────────────────────────────────────────────────────
+
+    @session.sub_command(name="publish", description="Опубликовать завершённые сессии игры [SUPPORT+]")
+    @require_role(PlatformPolicies.require_support)
+    async def session_publish(
+        self,
+        inter: disnake.ApplicationCommandInteraction,
+        game_id: str = commands.Param(description="UUID игры"),
+        from_session: int = commands.Param(default=None, description="С какой сессии (включительно)"),
+        to_session: int = commands.Param(default=None, description="По какую сессию (включительно)"),
+    ) -> None:
+        await inter.response.defer(ephemeral=False)
+
+        try:
+            gid = UUID(game_id)
+        except ValueError:
+            await inter.followup.send("❌ `game_id` должен быть UUID.", ephemeral=True)
+            return
+
+        async with game_session_service_ctx() as service:
+            result = await service.get_completed_by_game_id(
+                game_id=gid,
+                page=1,
+                page_size=200,
+                from_number=from_session,
+                to_number=to_session,
+            )
+
+        sessions = result.items
+
+        # Если диапазон не указан — только последняя завершённая
+        if from_session is None and to_session is None:
+            sessions = sessions[-1:] if sessions else []
+
+        if not sessions:
+            await inter.followup.send("❌ Завершённых сессий не найдено.", ephemeral=True)
+            return
+
+        for s in sessions:
+            await inter.channel.send(embed=build_session_publish_embed(s))
+
+        await inter.followup.send(
+            f"✅ Опубликовано {len(sessions)} сессий.", ephemeral=True
+        )
 
 
 def setup(bot: commands.InteractionBot) -> None:
