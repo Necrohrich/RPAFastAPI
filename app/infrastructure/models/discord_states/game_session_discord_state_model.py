@@ -48,6 +48,7 @@ class GameSessionDiscordStateModel(BaseModel):
     attending_user_ids: Mapped[Optional[list]] = mapped_column(
         JSONB, nullable=True, default=list
     )
+    original_nicknames: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True, default=dict)
 
     # Связи One-to-One
     session: Mapped["GameSessionModel"] = relationship(  # type: ignore[name-defined]

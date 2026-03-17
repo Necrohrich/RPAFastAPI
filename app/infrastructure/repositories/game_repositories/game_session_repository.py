@@ -6,9 +6,10 @@ from sqlalchemy import select, update, delete, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.entities import GameSession
-from app.domain.enums import GameSessionStatusEnum
+from app.domain.enums import GameSessionStatusEnum, PlayerStatusEnum
 from app.domain.repositories import IGameSessionRepository
-from app.infrastructure.models import GameSessionModel, GameModel, GameSessionDiscordStateModel
+from app.infrastructure.models import GameSessionModel, GameModel, GameSessionDiscordStateModel, UserModel, \
+    CharacterModel, GamePlayerModel
 from app.utils import Mapper
 
 # Статусы, которые не учитываются при нумерации сессий
@@ -222,6 +223,7 @@ class GameSessionRepository(IGameSessionRepository):
             "attendance_message_id": model.attendance_message_id,
             "temp_role_id": model.temp_role_id,
             "attending_user_ids": model.attending_user_ids or [],
+            "original_nicknames": model.original_nicknames or {},  # НОВОЕ
         }
 
     async def create_discord_state(
@@ -246,6 +248,7 @@ class GameSessionRepository(IGameSessionRepository):
         attendance_message_id: Optional[int] = None,
         temp_role_id: Optional[int] = None,
         attending_user_ids: Optional[list[int]] = None,
+        original_nicknames: Optional[dict] = None,  # НОВОЕ
     ) -> None:
         values: dict = {}
         if attendance_message_id is not None:
@@ -254,6 +257,8 @@ class GameSessionRepository(IGameSessionRepository):
             values["temp_role_id"] = temp_role_id
         if attending_user_ids is not None:
             values["attending_user_ids"] = attending_user_ids
+        if original_nicknames is not None:  # НОВОЕ
+            values["original_nicknames"] = original_nicknames
         if not values:
             return
         stmt = (
@@ -269,3 +274,37 @@ class GameSessionRepository(IGameSessionRepository):
             GameSessionDiscordStateModel.session_id == session_id
         )
         await self.session.execute(stmt)
+
+    async def get_accepted_players_with_discord(
+            self, game_id: UUID,
+    ) -> list[tuple[int, str]]:
+        """
+        Возвращает (primary_discord_id, login) для ACCEPTED игроков с привязанным discord_id.
+        """
+        stmt = (
+            select(UserModel.primary_discord_id, UserModel.login)
+            .join(GamePlayerModel, GamePlayerModel.user_id == UserModel.id)
+            .where(GamePlayerModel.game_id == game_id)
+            .where(GamePlayerModel.status == PlayerStatusEnum.ACCEPTED)
+            .where(UserModel.primary_discord_id.isnot(None))
+        )
+        result = await self.session.execute(stmt)
+        return [(row.primary_discord_id, row.login) for row in result.all()]
+
+    async def get_player_characters(
+            self, game_id: UUID, discord_ids: list[int],
+    ) -> dict[int, str]:
+        """
+        Возвращает {primary_discord_id: character_name} для участников с персонажем в игре.
+        """
+        if not discord_ids:
+            return {}
+        stmt = (
+            select(UserModel.primary_discord_id, CharacterModel.name)
+            .join(CharacterModel, CharacterModel.user_id == UserModel.id)
+            .where(CharacterModel.game_id == game_id)
+            .where(CharacterModel.deleted_at.is_(None))
+            .where(UserModel.primary_discord_id.in_(discord_ids))
+        )
+        result = await self.session.execute(stmt)
+        return {row.primary_discord_id: row.name for row in result.all()}

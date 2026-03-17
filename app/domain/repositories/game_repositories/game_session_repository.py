@@ -31,6 +31,8 @@ class IGameSessionRepository(ABC):
         * create_discord_state — создаёт запись Discord-состояния при старте сессии
         * update_discord_state — обновляет поля Discord-состояния
         * delete_discord_state — удаляет Discord-состояние (при завершении/отмене)
+        * get_accepted_players_with_discord - возвращает список (primary_discord_id, login) для принятых игроков игры.
+        * get_player_characters - возвращает маппинг {primary_discord_id: character_name} для участников.
     """
 
     # ── Сессии ───────────────────────────────────────────────────────────────
@@ -119,7 +121,14 @@ class IGameSessionRepository(ABC):
         attendance_message_id: Optional[int] = None,
         temp_role_id: Optional[int] = None,
         attending_user_ids: Optional[list[int]] = None,
+        original_nicknames: Optional[dict] = None,
     ) -> None: ...
 
     @abstractmethod
     async def delete_discord_state(self, session_id: UUID) -> None: ...
+
+    @abstractmethod
+    async def get_accepted_players_with_discord( self, game_id: UUID) -> list[tuple[int, str]]: ...
+
+    @abstractmethod
+    async def get_player_characters(self, game_id: UUID, discord_ids: list[int]) -> dict[int, str]: ...
