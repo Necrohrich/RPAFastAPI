@@ -110,26 +110,42 @@ class GameSessionRepository(IGameSessionRepository):
         return result.scalar_one()
 
     async def get_completed_by_game_id(
-        self, game_id: UUID, offset: int, limit: int,
+            self,
+            game_id: UUID,
+            offset: int,
+            limit: int,
+            from_number: Optional[int] = None,
+            to_number: Optional[int] = None,
     ) -> list[GameSession]:
         stmt = (
             select(GameSessionModel)
             .where(GameSessionModel.game_id == game_id)
             .where(GameSessionModel.status == GameSessionStatusEnum.COMPLETED)
-            .order_by(GameSessionModel.session_number)
-            .offset(offset)
-            .limit(limit)
         )
+        if from_number is not None:
+            stmt = stmt.where(GameSessionModel.session_number >= from_number)
+        if to_number is not None:
+            stmt = stmt.where(GameSessionModel.session_number <= to_number)
+        stmt = stmt.order_by(GameSessionModel.session_number).offset(offset).limit(limit)
         result = await self.session.execute(stmt)
         return [Mapper.model_to_entity(m, GameSession) for m in result.scalars().all()]
 
-    async def count_completed_by_game_id(self, game_id: UUID) -> int:
+    async def count_completed_by_game_id(
+            self,
+            game_id: UUID,
+            from_number: Optional[int] = None,
+            to_number: Optional[int] = None,
+    ) -> int:
         stmt = (
             select(func.count())
             .select_from(GameSessionModel)
             .where(GameSessionModel.game_id == game_id)
             .where(GameSessionModel.status == GameSessionStatusEnum.COMPLETED)
         )
+        if from_number is not None:
+            stmt = stmt.where(GameSessionModel.session_number >= from_number)
+        if to_number is not None:
+            stmt = stmt.where(GameSessionModel.session_number <= to_number)
         result = await self.session.execute(stmt)
         return result.scalar_one()
 

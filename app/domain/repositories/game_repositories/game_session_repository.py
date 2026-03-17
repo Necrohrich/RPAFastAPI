@@ -51,11 +51,21 @@ class IGameSessionRepository(ABC):
 
     @abstractmethod
     async def get_completed_by_game_id(
-        self, game_id: UUID, offset: int, limit: int,
+            self,
+            game_id: UUID,
+            offset: int,
+            limit: int,
+            from_number: Optional[int] = None,
+            to_number: Optional[int] = None,
     ) -> list[GameSession]: ...
 
     @abstractmethod
-    async def count_completed_by_game_id(self, game_id: UUID) -> int: ...
+    async def count_completed_by_game_id(
+            self,
+            game_id: UUID,
+            from_number: Optional[int] = None,
+            to_number: Optional[int] = None,
+    ) -> int: ...
 
     @abstractmethod
     async def get_active_by_game_id(self, game_id: UUID) -> Optional[GameSession]: ...
