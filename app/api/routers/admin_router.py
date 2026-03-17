@@ -5,12 +5,13 @@ from uuid import UUID
 
 from app.api.security import require_superadmin, require_support, require_moderator
 from app.domain.enums.platform_role_enum import PlatformRoleEnum
-from app.dto import GameSystemResponseDTO, CreateGameSystemDTO, PaginatedResponseDTO, UpdateGameSystemDTO
-from app.services import GameSystemService, CharacterService, GameService
+from app.dto import GameSystemResponseDTO, CreateGameSystemDTO, PaginatedResponseDTO, UpdateGameSystemDTO, \
+    GameSessionResponseDTO
+from app.services import GameSystemService, CharacterService, GameService, GameSessionService
 from app.services.auth_service import AuthService
 from app.services.user_service import UserService
 from app.api.dependencies import get_user_service, get_auth_service, get_game_system_service, get_character_service, \
-    get_game_service
+    get_game_service, get_game_session_service
 from app.dto.auth_dtos import UserDTO
 
 router = APIRouter(
@@ -182,3 +183,19 @@ async def delete_game(
         service: GameService = Depends(get_game_service),
 ):
     await service.delete(game_id)
+
+
+# ────────────────────────────────────────────────────────────
+# Game Sessions
+# ────────────────────────────────────────────────────────────
+
+@router.post(
+    "/game-sessions/{session_id}/invalidate",
+    response_model=GameSessionResponseDTO,
+    dependencies=[Depends(require_moderator)],
+)
+async def invalidate_game_session(
+        session_id: UUID,
+        service: GameSessionService = Depends(get_game_session_service),
+):
+    return await service.invalidate(session_id)

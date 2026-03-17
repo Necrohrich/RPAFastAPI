@@ -16,8 +16,6 @@ class CreateGameSessionDTO(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     image_url: Optional[str] = None
-    started_at: Optional[datetime] = None
-    ended_at: Optional[datetime] = None
 
 
 class UpdateGameSessionDTO(BaseModel):

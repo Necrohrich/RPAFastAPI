@@ -87,9 +87,15 @@ class GameSessionService:
 
         session_number = await self.repo.get_next_session_number(dto.game_id)
 
-        session = Mapper.dto_to_entity(dto, GameSession)
-        session.session_number = session_number
-        session.status = GameSessionStatusEnum.CREATED
+        session = GameSession(
+            game_id=dto.game_id,
+            session_number=session_number,
+            discord_event_id=dto.discord_event_id,
+            title=dto.title or "",
+            description=dto.description or "",
+            image_url=dto.image_url or "",
+            status=GameSessionStatusEnum.CREATED,
+        )
 
         created = await self.repo.create(session)
         return Mapper.entity_to_dto(created, GameSessionResponseDTO)

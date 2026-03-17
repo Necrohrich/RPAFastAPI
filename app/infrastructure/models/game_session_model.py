@@ -1,8 +1,8 @@
 #app/infrastructure/models/game_session_model.py
 import uuid
-from typing import Optional, Text
+from typing import Optional
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import String, UUID, ForeignKey, Integer, CheckConstraint, BigInteger, DateTime, Index, text
+from sqlalchemy import String, UUID, ForeignKey, Integer, CheckConstraint, BigInteger, DateTime, Index, text, Text
 from sqlalchemy import Enum as SQLEnum
 
 from app.domain.enums.game_session_status_enum import GameSessionStatusEnum
@@ -37,7 +37,7 @@ class GameSessionModel(BaseModel):
         SQLEnum(GameSessionStatusEnum, name="game_session_status_enum")
     )
     title: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    description: Mapped[Optional[str]] = mapped_column(Text(2000), nullable=True)
+    description: Mapped[Optional[str]] = mapped_column(Text(), nullable=True)
     image_url: Mapped[Optional[str]] = mapped_column(String(250), nullable=True)
     started_at: Mapped[Optional[DateTime]] = mapped_column(DateTime(timezone=True), nullable=True)
     ended_at: Mapped[Optional[DateTime]] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -55,7 +55,10 @@ class GameSessionModel(BaseModel):
             postgresql_where=text("status NOT IN ('CANCELED', 'INVALID') OR status IS NULL")
         ),
         CheckConstraint('session_number > 0', name='positive_session_number'),
-        CheckConstraint('ended_at > started_at', name='valid_session_dates'),
+        CheckConstraint(
+            '(ended_at IS NULL OR started_at IS NULL OR ended_at > started_at)',
+            name='valid_session_dates'
+        ),
         # Индекс по активности
         Index(
             'ix_game_sessions_active',
