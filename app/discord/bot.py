@@ -30,3 +30,4 @@ class RPABot(commands.InteractionBot):
         self._startup_notified = True
 
         logger.info("Discord bot is running as %s", self.user)
+        logger.info("Loaded cogs: %s", list(self.cogs.keys()))

@@ -2,7 +2,7 @@
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import select, update, delete, func
+from sqlalchemy import select, update, delete, func, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.entities import GameSession
@@ -200,8 +200,8 @@ class GameSessionRepository(IGameSessionRepository):
             select(GameModel.id)
             .where(GameModel.deleted_at.is_(None))
             .where(
-                func.lower(func.cast(event_title, type_=None)).contains(
-                    func.lower(GameModel.name)
+                text(":title ILIKE '%' || lower(games.name) || '%'").bindparams(
+                    title=event_title.lower()
                 )
             )
             .limit(1)

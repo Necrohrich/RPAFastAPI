@@ -514,8 +514,3 @@ class GameSessionCog(commands.Cog):
         await inter.followup.send(
             f"✅ Опубликовано {len(sessions)} сессий.", ephemeral=True
         )
-
-
-def setup(bot: commands.InteractionBot) -> None:
-    bot.add_cog(GameSessionCog(bot))
-    logger.info("GameSessionCog loaded")
