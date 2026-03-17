@@ -35,8 +35,7 @@ __all__ = [
     "GameSessionError",
     "GameSessionNotFoundException",
     "GameSessionAlreadyActiveException",
-    "GameSessionInvalidStatusTransitionException",
-    "GameSessionPermissionException",
+    "GameSessionInvalidStatusTransitionException"
 ]
 
 
@@ -46,7 +45,7 @@ from app.exceptions.character_exceptions import CharacterPermissionException, Ch
 from app.exceptions.common_exceptions import PermissionDenied, NotFoundError, ApplicationError, ValidationError
 from app.exceptions.game_exceptions import NotGameAuthorException, PlayerNotFoundException, \
     PlayerAlreadyInGameException, GameAlreadyExistsException, GameNotFoundException, GameError
-from app.exceptions.game_session_exceptions import GameSessionError, GameSessionPermissionException, \
+from app.exceptions.game_session_exceptions import GameSessionError, \
     GameSessionInvalidStatusTransitionException, GameSessionAlreadyActiveException, GameSessionNotFoundException
 from app.exceptions.game_system_exceptions import GameSystemAlreadyExistsException, GameSystemNotFoundException, \
     GameSystemError, GameSystemHasDependenciesException

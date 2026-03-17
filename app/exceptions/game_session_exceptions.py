@@ -19,8 +19,3 @@ class GameSessionAlreadyActiveException(GameSessionError):
 class GameSessionInvalidStatusTransitionException(GameSessionError):
     """Недопустимый переход статуса сессии"""
     pass
-
-
-class GameSessionPermissionException(GameSessionError):
-    """Недостаточно прав для выполнения операции над сессией"""
-    pass

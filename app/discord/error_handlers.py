@@ -128,6 +128,27 @@ _ERROR_MAP: dict[type[Exception], tuple[str, str, disnake.Color]] = {
         "Произошла ошибка при работе с игрой. Попробуйте позже.",
         disnake.Color.red(),
     ),
+    # ── Game Session exceptions ──────────────────────────────
+    GameSessionNotFoundException: (
+        "Сессия не найдена",
+        "Игровая сессия с указанным ID не найдена.",
+        disnake.Color.yellow(),
+    ),
+    GameSessionAlreadyActiveException: (
+        "Сессия уже активна",
+        "Для этой игры уже запущена активная сессия.",
+        disnake.Color.orange(),
+    ),
+    GameSessionInvalidStatusTransitionException: (
+        "Недопустимый переход статуса",
+        "Невозможно изменить статус сессии в указанное состояние.",
+        disnake.Color.orange(),
+    ),
+    GameSessionError: (
+        "Ошибка игровой сессии",
+        "Произошла ошибка при работе с игровой сессией. Попробуйте позже.",
+        disnake.Color.red(),
+    ),
     # ── Game system exceptions ───────────────────────────────
     GameSystemHasDependenciesException: (
         "Невозможно удалить",

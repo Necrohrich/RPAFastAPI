@@ -5,8 +5,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infrastructure.db.database import get_uow, UnitOfWork
 from app.infrastructure.repositories import DiscordRepository, TokenRepository, UserRepository, CharacterRepository, \
-    GameSystemRepository, GameRepository
-from app.services import AuthService, UserService, GameService, CharacterService, GameSystemService
+    GameSystemRepository, GameRepository, GameSessionRepository
+from app.services import AuthService, UserService, GameService, CharacterService, GameSystemService, GameSessionService
 from app.dto.auth_dtos import UserDTO
 
 security = HTTPBearer()
@@ -40,6 +40,9 @@ def get_game_system_repo(session: AsyncSession = Depends(get_session)):
 
 def get_character_repo(session: AsyncSession = Depends(get_session)):
     return CharacterRepository(session)
+
+def get_game_session_repo(session: AsyncSession = Depends(get_session)):
+    return GameSessionRepository(session)
 
 
 # ────────────────────────────────────────────────────────────
@@ -79,6 +82,12 @@ def get_game_service(
         user_repo=Depends(get_user_repo),
 ):
     return GameService(repo, character_repo, game_system_repo, user_repo)
+
+def get_game_session_service(
+        repo=Depends(get_game_session_repo),
+        game_repo=Depends(get_game_repo),
+):
+    return GameSessionService(repo, game_repo)
 
 
 # ────────────────────────────────────────────────────────────

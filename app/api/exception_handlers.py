@@ -7,7 +7,8 @@ from sqlalchemy.exc import IntegrityError
 from app.exceptions import CharacterPermissionException, CharacterGameSystemMismatchException, \
     CharacterAlreadyExistsException, CharacterNotFoundException, NotGameAuthorException, PlayerNotFoundException, \
     PlayerAlreadyInGameException, GameAlreadyExistsException, GameNotFoundException, GameSystemAlreadyExistsException, \
-    GameSystemNotFoundException, GameSystemHasDependenciesException, CharacterGameSystemAlreadySetException
+    GameSystemNotFoundException, GameSystemHasDependenciesException, CharacterGameSystemAlreadySetException, \
+    GameSessionInvalidStatusTransitionException, GameSessionAlreadyActiveException, GameSessionNotFoundException
 from app.exceptions.auth_exceptions import InvalidCredentials, InvalidToken, TokenExpired
 from app.exceptions.common_exceptions import NotFoundError, ValidationError, PermissionDenied
 from app.exceptions.user_exceptions import (
@@ -52,6 +53,11 @@ EXCEPTION_MAP: dict[type[Exception], tuple[int, str]] = {
     CharacterGameSystemMismatchException: (status.HTTP_409_CONFLICT,    "Character game system does not match the game"),
     CharacterPermissionException:       (status.HTTP_403_FORBIDDEN,     "Only the character owner can perform this action"),
     CharacterGameSystemAlreadySetException: (status.HTTP_409_CONFLICT, "Character game system already set"),
+
+    # Game Session
+    GameSessionNotFoundException:                   (status.HTTP_404_NOT_FOUND,   "Game session not found"),
+    GameSessionAlreadyActiveException:              (status.HTTP_409_CONFLICT,    "Game already has an active session"),
+    GameSessionInvalidStatusTransitionException:    (status.HTTP_409_CONFLICT,    "Invalid session status transition"),
 }
 
 
