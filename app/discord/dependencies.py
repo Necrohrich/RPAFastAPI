@@ -3,8 +3,9 @@ from contextlib import asynccontextmanager
 
 from app.infrastructure.db.database import UnitOfWork
 from app.infrastructure.repositories import DiscordRepository, TokenRepository, UserRepository, GameSystemRepository, \
-    CharacterRepository, GameRepository, GameSessionRepository
-from app.services import AuthService, UserService, GameSystemService, GameService, CharacterService, GameSessionService
+    CharacterRepository, GameRepository, GameSessionRepository, GuildDiscordSettingsRepository
+from app.services import AuthService, UserService, GameSystemService, GameService, CharacterService, GameSessionService, \
+    GuildDiscordSettingsService
 
 
 @asynccontextmanager
@@ -52,3 +53,9 @@ async def game_session_service_ctx():
         game_session_repo = GameSessionRepository(uow.session)
         game_repo = GameRepository(uow.session)
         yield GameSessionService(game_session_repo, game_repo)
+
+@asynccontextmanager
+async def guild_settings_service_ctx():
+    async with UnitOfWork() as uow:
+        guild_settings_repo = GuildDiscordSettingsRepository(uow.session)
+        yield GuildDiscordSettingsService(guild_settings_repo)
