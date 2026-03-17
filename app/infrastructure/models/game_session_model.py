@@ -14,7 +14,7 @@ class GameSessionModel(BaseModel):
     Сессия с номером, статусом, Discord событием и временными рамками.
 
     Связи:
-        * Многие-к-одному: game (родительская игра)
+        * Многие-к-одному: game (родительская игра), discord_state (состояние в дискорде)
 
     Ключевые поля:
         * game_id — игра (FK → games.id)
@@ -44,6 +44,7 @@ class GameSessionModel(BaseModel):
 
     # Связи Many-to-One
     game: Mapped["GameModel"] = relationship(back_populates='game_sessions') # type: ignore[import]
+    discord_state: Mapped[Optional["GameSessionDiscordStateModel"]] = relationship( back_populates='session', uselist=False)  # type: ignore[name-defined]
 
     __table_args__ = (
         # Частичный уникальный индекс для активных сессий

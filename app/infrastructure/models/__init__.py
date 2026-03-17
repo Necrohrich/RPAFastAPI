@@ -1,5 +1,7 @@
 from app.infrastructure.models.base_model import BaseModel
 from app.infrastructure.models.character_model import CharacterModel
+from app.infrastructure.models.discord_states.game_session_discord_state_model import GameSessionDiscordStateModel
+from app.infrastructure.models.discord_states.guild_discord_settings_model import GuildDiscordSettingsModel
 from app.infrastructure.models.game_model import GameModel
 from app.infrastructure.models.game_player_model import GamePlayerModel
 from app.infrastructure.models.game_session_model import GameSessionModel
@@ -14,6 +16,8 @@ __all__ = [
     "GameModel",
     "GamePlayerModel",
     "GameSessionModel",
+    "GameSessionDiscordStateModel",
     "GameSystemModel",
+    "GuildDiscordSettingsModel",
     "RefreshTokenModel",
 ]
