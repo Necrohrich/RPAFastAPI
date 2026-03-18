@@ -1,18 +1,19 @@
 #app/discord/modals/character_update_modal.py
-from uuid import UUID
 
 from disnake import TextInputStyle, ModalInteraction
 from disnake.ui import TextInput
 
 from app.discord.dependencies import character_service_ctx, user_service_ctx
 from app.discord.modals.base_modal import BaseModal
-from app.discord.wizards import CharacterUpdateState
+from app.discord.states.wizards import CharacterUpdateState
 from app.dto import UpdateCharacterDTO
 
 
 class CharacterUpdateModal(BaseModal):
     def __init__(self, state: CharacterUpdateState):
         self.state=state
+        c = state.current_character
+
         components = [
             TextInput(
                 label="Введите имя",
@@ -20,7 +21,8 @@ class CharacterUpdateModal(BaseModal):
                 style=TextInputStyle.short,
                 min_length=1,
                 max_length=255,
-                required = False
+                required=True,
+                value=c.name if c and c.name else "",
             ),
             TextInput(
                 label="Введите url аватара",
@@ -28,7 +30,8 @@ class CharacterUpdateModal(BaseModal):
                 style=TextInputStyle.short,
                 min_length=10,
                 max_length=255,
-                required=False
+                required=False,
+                value=c.avatar if c and c.avatar else "",
             ),
         ]
         super().__init__(
@@ -40,8 +43,8 @@ class CharacterUpdateModal(BaseModal):
     async def callback(self, inter: ModalInteraction) -> None:
         await inter.response.defer(ephemeral=True)
 
-        name = inter.text_values["name_input"] or None
-        avatar = inter.text_values["avatar_url_input"] or None
+        name = inter.text_values["name_input"]
+        avatar = inter.text_values["avatar_url_input"].strip() or None
 
         async with user_service_ctx() as user_service:
             user = await user_service.get_user_by_discord(inter.author.id)

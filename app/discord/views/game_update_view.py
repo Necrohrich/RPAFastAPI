@@ -3,11 +3,11 @@ from uuid import UUID
 
 from disnake import MessageInteraction
 
-from app.discord.dependencies import game_system_service_ctx, user_service_ctx
+from app.discord.dependencies import game_system_service_ctx, user_service_ctx, game_service_ctx
 from app.discord.modals.game_update_modal import GameUpdateModal
 from app.discord.views.base_view import BaseView
 from app.discord.views.select_view import SelectView
-from app.discord.wizards import GameUpdateState
+from app.discord.states.wizards import GameUpdateState
 
 
 class GameUpdateView(BaseView):
@@ -25,7 +25,7 @@ class GameUpdateView(BaseView):
         async with game_system_service_ctx() as game_system_service:
             game_systems = await game_system_service.get_all_list()
 
-        self.state.game_systems = game_systems  # кэшируем в state
+        self.state.game_systems = game_systems  # кэшируем в states
 
         view = SelectView(
             items=games,
@@ -39,6 +39,8 @@ class GameUpdateView(BaseView):
 
     async def _on_game_selected(self, cb_inter: MessageInteraction, game_id: UUID):
         self.state.game_id = game_id
+        async with game_service_ctx() as game_service:
+            self.state.current_game = await game_service.get_by_id(game_id)
         await self._step_select_game_system(cb_inter)
 
     async def _step_select_game_system(self, inter: MessageInteraction):

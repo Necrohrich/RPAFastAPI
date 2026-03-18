@@ -1,4 +1,4 @@
-# app/discord/state/active_characters.py
+# app/discord/states/active_characters.py
 
 from uuid import UUID
 from dataclasses import dataclass, field

@@ -7,7 +7,7 @@ from app.discord.dependencies import game_system_service_ctx, user_service_ctx, 
 from app.discord.modals import CharacterUpdateModal
 from app.discord.views.base_view import BaseView
 from app.discord.views.select_view import SelectView
-from app.discord.wizards import CharacterUpdateState
+from app.discord.states.wizards import CharacterUpdateState
 
 class CharacterUpdateView(BaseView):
     """Пошаговый wizard обновления персонажа."""
@@ -24,7 +24,7 @@ class CharacterUpdateView(BaseView):
         async with game_system_service_ctx() as game_system_service:
             game_systems = await game_system_service.get_all_list()
 
-        self.state.game_systems = game_systems  # кэшируем в state
+        self.state.game_systems = game_systems  # кэшируем в states
 
         view = SelectView(
             items=characters,
@@ -38,6 +38,8 @@ class CharacterUpdateView(BaseView):
 
     async def _on_character_selected(self, cb_inter: MessageInteraction, character_id: UUID):
         self.state.character_id = character_id
+        async with character_service_ctx() as character_service:
+            self.state.current_character = await character_service.get_by_id(character_id)
         await self._step_select_game_system(cb_inter)
 
     async def _step_select_game_system(self, inter: MessageInteraction):

@@ -30,7 +30,7 @@ from app.dto import GameSessionResponseDTO
 
 logger = logging.getLogger(__name__)
 
-ATTENDANCE_TIMEOUT = 30 * 60  # секунд
+ATTENDANCE_TIMEOUT = 30 * 60 # секунд
 
 
 class AttendanceView(BaseView):

@@ -38,7 +38,7 @@ class GameSessionService:
         - Status transitions: start, complete, cancel, invalidate
         - Enforcement of the single-active-session-per-game rule
         - Linking Discord Scheduled Events to sessions manually (/session link)
-        - Creating/deleting Discord state on start/complete/cancel/invalidate
+        - Creating/deleting Discord states on start/complete/cancel/invalidate
 
     Does NOT:
         - Handle authentication or token validation

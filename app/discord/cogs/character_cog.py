@@ -7,8 +7,8 @@ from disnake.ext import commands
 from app.discord.dependencies import user_service_ctx, character_service_ctx
 from app.discord.embeds.build_сharacter_embed import build_character_embed
 from app.discord.policies import require_role, discord_policy
-from app.discord.state import ActiveCharacterEntry
-from app.discord.state.active_characters import set_active, clear_active
+from app.discord.states import ActiveCharacterEntry
+from app.discord.states.active_characters import set_active, clear_active
 from app.discord.views import CharacterView, SelectView
 from app.domain.policies import PlatformPolicies
 

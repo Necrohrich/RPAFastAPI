@@ -192,7 +192,6 @@ class CharacterService:
         character = await self.repo.get_by_id(character_id)
         if not character:
             raise CharacterNotFoundException()
-
         if character.user_id != requester_id:
             raise CharacterPermissionException()
 
@@ -205,14 +204,13 @@ class CharacterService:
 
         if dto.name is not None:
             character.name = dto.name
-        if dto.avatar is not None:
-            character.avatar = dto.avatar
         if dto.sheet_data is not None:
             character.sheet_data = dto.sheet_data
 
+        character.avatar = dto.avatar  # None = очистить
+
         response = await self.repo.update(character)
         return Mapper.entity_to_dto(response, CharacterResponseDTO)
-
 
     async def soft_delete(self, character_id: UUID, requester_id: UUID) -> None:
         character = await self.repo.get_by_id(character_id)

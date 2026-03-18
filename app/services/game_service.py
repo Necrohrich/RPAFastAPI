@@ -163,23 +163,24 @@ class GameService:
         if dto.name is not None:
             GameValidator.validate_name(dto.name)
         GameValidator.validate_discord_id(dto.gm_id, dto.discord_role_id, dto.discord_main_channel_id)
+
         game = await self.repo.get_by_id(game_id)
         if not game:
             raise GameNotFoundException()
         if game.author_id != requester_id:
             raise NotGameAuthorException()
+
         if dto.name is not None:
             game.name = dto.name
         if dto.game_system_id is not None:
             if not await self.game_system_repo.get_by_id(dto.game_system_id):
                 raise GameSystemNotFoundException()
             game.game_system_id = dto.game_system_id
-        if dto.gm_id is not None:
-            game.gm_id = dto.gm_id
-        if dto.discord_role_id is not None:
-            game.discord_role_id = dto.discord_role_id
-        if dto.discord_main_channel_id is not None:
-            game.discord_main_channel_id = dto.discord_main_channel_id
+
+        game.gm_id = dto.gm_id
+        game.discord_role_id = dto.discord_role_id
+        game.discord_main_channel_id = dto.discord_main_channel_id
+
         response = await self.repo.update(game)
         return await self._to_dto(response)
 

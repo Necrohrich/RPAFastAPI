@@ -1,7 +1,7 @@
 # app/discord/cogs/roleplay_cog.py
 import disnake
 from disnake.ext import commands
-from app.discord.state.active_characters import get_active
+from app.discord.states.active_characters import get_active
 from app.discord.utils.validator_utils import is_valid_url
 
 
