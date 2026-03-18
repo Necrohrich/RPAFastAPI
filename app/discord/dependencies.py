@@ -39,7 +39,8 @@ async def game_service_ctx():
         character_repo = CharacterRepository(uow.session)
         game_system_repo = GameSystemRepository(uow.session)
         user_repo = UserRepository(uow.session)
-        yield GameService(game_repo, character_repo, game_system_repo, user_repo)
+        discord_repo = DiscordRepository(uow.session)
+        yield GameService(game_repo, character_repo, game_system_repo, user_repo, discord_repo)
 
 @asynccontextmanager
 async def game_system_service_ctx():
