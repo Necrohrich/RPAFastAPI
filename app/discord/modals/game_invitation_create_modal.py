@@ -29,8 +29,8 @@ class GameInvitationCreateModal(BaseModal):
                 required=False
             ),
             TextInput(
-                label="Введите url аватара",
-                custom_id="avatar_url_input",
+                label="Введите url обложки",
+                custom_id="cover_url_input",
                 style=TextInputStyle.short,
                 min_length=10,
                 max_length=255,
@@ -51,7 +51,7 @@ class GameInvitationCreateModal(BaseModal):
 
         channel_id = int(inter.text_values["channel_id_input"])
         description = inter.text_values["description_input"] or None
-        avatar_url = inter.text_values["avatar_url_input"] or None
+        cover_url = inter.text_values["cover_url_input"] or None
 
         channel = inter.bot.get_channel(channel_id)
         if channel is None:
@@ -66,10 +66,11 @@ class GameInvitationCreateModal(BaseModal):
         embed = Embed(title=f"Приглашение в игру: {game.name}")
         if description:
             embed.description = description
-        if avatar_url:
-            embed.set_thumbnail(url=avatar_url)
+        if cover_url:
+            embed.set_thumbnail(url=cover_url)
+        embed.set_footer(text=str(self.game_id))
 
-        view = GameInvitationView(game_id=self.game_id)
+        view = GameInvitationView()
         await channel.send(embed=embed, view=view)
         await inter.followup.send("✅ Приглашение отправлено", ephemeral=True)
 
