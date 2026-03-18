@@ -4,7 +4,8 @@ from uuid import UUID
 
 from app.domain.entities import Game, GamePlayer
 from app.domain.enums import PlayerStatusEnum
-from app.domain.repositories import IUserRepository, IGameSystemRepository, ICharacterRepository, IGameRepository
+from app.domain.repositories import IUserRepository, IGameSystemRepository, ICharacterRepository, IGameRepository, \
+    IDiscordRepository
 from app.dto import CreateGameDTO, GameResponseDTO, GameDetailedResponseDTO, PaginatedResponseDTO, \
     GamePlayerResponseDTO, UpdateGameDTO, CharacterResponseDTO
 from app.exceptions import GameSystemNotFoundException, GameAlreadyExistsException, GameNotFoundException, \
@@ -47,11 +48,13 @@ class GameService:
             character_repo: ICharacterRepository,
             game_system_repo: IGameSystemRepository,
             user_repo: IUserRepository,
+            discord_repo: IDiscordRepository
     ):
         self.repo = repo
         self.character_repo = character_repo
         self.user_repo=user_repo
         self.game_system_repo=game_system_repo
+        self.discord_repo=discord_repo
 
     async def _to_dto(self, game: Game) -> GameResponseDTO:
         dto = Mapper.entity_to_dto(game, GameResponseDTO)
@@ -70,6 +73,24 @@ class GameService:
             dto.game_system_name = system.name if system else None
             result.append(dto)
         return result
+
+    async def _detach_characters_from_game(self, game_id: UUID, user_ids: list[UUID]) -> None:
+        offset = 0
+        limit = 100
+        while True:
+            characters = await self.character_repo.get_by_game_id_and_user_ids(
+                game_id=game_id,
+                user_ids=user_ids,
+                offset=offset,
+                limit=limit,
+            )
+            if not characters:
+                break
+            for character in characters:
+                await self.character_repo.detach_from_game(character.id)
+            if len(characters) < limit:
+                break
+            offset += limit
 
     async def create(self, dto: CreateGameDTO, author_id: UUID) -> GameResponseDTO:
         GameValidator.validate_name(dto.name)
@@ -170,6 +191,8 @@ class GameService:
         if game.author_id != requester_id:
             raise NotGameAuthorException()
 
+        old_gm_discord_id = game.gm_id
+
         if dto.name is not None:
             game.name = dto.name
         if dto.game_system_id is not None:
@@ -182,6 +205,14 @@ class GameService:
         game.discord_main_channel_id = dto.discord_main_channel_id
 
         response = await self.repo.update(game)
+
+        # Если мастер изменился или сброшен — отцепляем персонажей старого GM
+        gm_changed = dto.gm_id != old_gm_discord_id
+        if gm_changed and old_gm_discord_id is not None:
+            old_gm_user = await self.discord_repo.get_user_by_discord_id(old_gm_discord_id)
+            if old_gm_user:
+                await self._detach_characters_from_game(game_id, [old_gm_user.id])
+
         return await self._to_dto(response)
 
     async def soft_delete(self, game_id: UUID, requester_id) -> None:
@@ -252,6 +283,9 @@ class GameService:
             raise PlayerNotFoundException()
 
         await self.repo.remove_player(game_id, player_id)
+
+        # Отцепляем все персонажи удалённого игрока из игры
+        await self._detach_characters_from_game(game_id, [player_id])
 
     async def attach_character(self, game_id: UUID, character_id: UUID, requester_id: UUID) \
             -> CharacterResponseDTO:

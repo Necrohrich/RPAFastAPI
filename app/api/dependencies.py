@@ -80,8 +80,9 @@ def get_game_service(
         character_repo=Depends(get_character_repo),
         game_system_repo=Depends(get_game_system_repo),
         user_repo=Depends(get_user_repo),
+        discord_repo=Depends(get_discord_repo)
 ):
-    return GameService(repo, character_repo, game_system_repo, user_repo)
+    return GameService(repo, character_repo, game_system_repo, user_repo, discord_repo)
 
 def get_game_session_service(
         repo=Depends(get_game_session_repo),
