@@ -244,10 +244,6 @@ class GameSessionCog(commands.Cog):
         msg = await channel.send(embed=view.current_embed(), view=view)
         view.set_message(msg)
 
-        await service.repo.create_discord_state(
-            session_id=session.id,
-            attendance_message_id=msg.id,
-        )
         logger.info("[event_start] AttendanceView sent, session=%s msg=%s", session.id, msg.id)
 
         # view.wait() — ВНЕ контекста service (вызывается из update, service уже закрыт)
@@ -260,7 +256,11 @@ class GameSessionCog(commands.Cog):
                 return
 
             attending_ids = view.attending_ids
-            await svc.start(session.id, attending_user_ids=attending_ids)
+            await svc.start(
+                session.id,
+                attending_user_ids=attending_ids,
+                attendance_message_id=msg.id,  # передаём сюда
+            )
             logger.info("[event_start] Session %s started, attending=%d", session.id, len(attending_ids))
 
             game = await svc.game_repo.get_by_id(session.game_id)

@@ -47,6 +47,7 @@ async def assign_session_roles(
         temp_role = await guild.create_role(
             name=game.name,
             color=role_color,
+            hoist=True,
             reason=f"Сессия #{session.session_number} игры «{game.name}»",
         )
     except disnake.HTTPException as exc:

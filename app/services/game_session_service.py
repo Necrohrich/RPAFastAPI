@@ -112,6 +112,7 @@ class GameSessionService:
         self,
         session_id: UUID,
         attending_user_ids: Optional[list[int]] = None,
+        attendance_message_id=None
     ) -> GameSessionResponseDTO:
         """Переводит сессию в ACTIVE и создаёт Discord-состояние.
 
@@ -130,6 +131,7 @@ class GameSessionService:
         await self.repo.create_discord_state(
             session_id=session_id,
             attending_user_ids=attending_user_ids or [],
+            attendance_message_id=attendance_message_id,
         )
         return Mapper.entity_to_dto(updated, GameSessionResponseDTO)
 
