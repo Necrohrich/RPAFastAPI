@@ -112,34 +112,6 @@ class GameSessionCog(commands.Cog):
                 await self._handle_event_end(after, service, session)
                 return
 
-            # ── Отмена ───────────────────────────────────────────────────────
-            if (
-                after.status == disnake.GuildScheduledEventStatus.canceled
-                and before.status != disnake.GuildScheduledEventStatus.canceled
-            ):
-                discord_state = await service.repo.get_discord_state(session.id)
-                game = await service.game_repo.get_by_id(session.game_id)
-
-                await service.cancel(session.id)
-                logger.info("[event_update] Session %s canceled", session.id)
-
-                if discord_state and discord_state.get("attendance_message_id"):
-                    await delete_message_safe(
-                        self.bot,
-                        channel_id=game.discord_main_channel_id if game else None,
-                        message_id=discord_state["attendance_message_id"],
-                    )
-
-                if game:
-                    await notify_game_channel(
-                        self.bot,
-                        channel_id=game.discord_main_channel_id,
-                        role_id=game.discord_role_id,
-                        text=f"❌ Сессия #{session.session_number} отменена",
-                        color=disnake.Color.red(),
-                    )
-                return
-
             # ── Обновление полей ─────────────────────────────────────────────
             changed: dict = {}
             if after.name != (session.title or ""):
@@ -153,6 +125,45 @@ class GameSessionCog(commands.Cog):
             if changed:
                 await service.update(session.id, UpdateGameSessionDTO(**changed))
                 logger.info("[event_update] Session %s updated: %s", session.id, list(changed.keys()))
+
+    # ── on_guild_scheduled_event_delete ──────────────────────────────────────
+
+    @commands.Cog.listener()
+    async def on_guild_scheduled_event_delete(
+            self,
+            event: disnake.GuildScheduledEvent,
+    ) -> None:
+        logger.info("[event_delete] id=%s title=%r", event.id, event.name)
+        async with game_session_service_ctx() as service:
+            session = await service.repo.get_by_discord_event_id(event.id)
+            if not session:
+                return
+
+            if session.status.value == "CANCELED":  # уже отменена через slash — пропускаем
+                logger.info("[event_delete] Session %s already canceled — skipping", session.id)
+                return
+
+            discord_state = await service.repo.get_discord_state(session.id)
+            game = await service.game_repo.get_by_id(session.game_id)
+
+            await service.cancel(session.id)
+            logger.info("[event_delete] Session %s canceled", session.id)
+
+            if discord_state and discord_state.get("attendance_message_id"):
+                await delete_message_safe(
+                    self.bot,
+                    channel_id=game.discord_main_channel_id if game else None,
+                    message_id=discord_state["attendance_message_id"],
+                )
+
+            if game:
+                await notify_game_channel(
+                    self.bot,
+                    channel_id=game.discord_main_channel_id,
+                    role_id=game.discord_role_id,
+                    text=f"❌ Сессия #{session.session_number} отменена",
+                    color=disnake.Color.red(),
+                )
 
     # ── _handle_event_start ───────────────────────────────────────────────────
 
@@ -380,7 +391,7 @@ class GameSessionCog(commands.Cog):
             return
 
         async def on_session_selected(
-            cb_inter: disnake.MessageInteraction, selected_id: UUID
+                cb_inter: disnake.MessageInteraction, selected_id: UUID
         ) -> None:
             async with game_session_service_ctx() as svc:
                 discord_state = await svc.repo.get_discord_state(selected_id)
@@ -393,6 +404,16 @@ class GameSessionCog(commands.Cog):
                     channel_id=game.discord_main_channel_id,
                     message_id=discord_state["attendance_message_id"],
                 )
+
+            # Отменяем Discord-событие если оно привязано
+            if session.discord_event_id and inter.guild:
+                try:
+                    discord_event = await inter.guild.fetch_scheduled_event(session.discord_event_id)
+                    await discord_event.cancel()
+                except disnake.NotFound:
+                    pass  # событие уже удалено
+                except disnake.HTTPException as e:
+                    logger.warning("[session_cancel] Failed to cancel discord event: %s", e)
 
             if game:
                 await notify_game_channel(
