@@ -11,9 +11,11 @@ __all__=[
     "GameInvitationView",
     "GameSettingsView",
     "PlayerRequestActionView",
-    "GamePageView"
+    "GamePageView",
+    "AttendanceView"
 ]
 
+from app.discord.views.attendance_view import AttendanceView
 from app.discord.views.base_view import BaseView
 from app.discord.views.character_update_view import CharacterUpdateView
 from app.discord.views.character_view import CharacterView

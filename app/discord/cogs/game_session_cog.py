@@ -1,6 +1,4 @@
 # app/discord/cogs/game_session_cog.py
-from __future__ import annotations
-
 import logging
 from uuid import UUID
 
@@ -19,8 +17,7 @@ from app.discord.utils.event_utils import (
     delete_message_safe,
 )
 from app.discord.utils.session_roles import assign_session_roles, restore_after_session
-from app.discord.views.attendance_view import AttendanceView
-from app.discord.views import SelectView
+from app.discord.views import AttendanceView, SelectView
 from app.domain.policies import PlatformPolicies
 from app.dto import CreateGameSessionDTO, UpdateGameSessionDTO
 from app.exceptions import GuildSettingsNotFoundException
