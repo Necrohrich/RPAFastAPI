@@ -375,7 +375,7 @@ class GameSessionCog(commands.Cog):
     async def session_link(
             self,
             inter: disnake.ApplicationCommandInteraction,
-            discord_user: User,
+            game_author: User,
             event_id: str = commands.Param(description="ID Discord Scheduled Event"),
     ) -> None:
         await inter.response.defer(ephemeral=True)
@@ -409,7 +409,7 @@ class GameSessionCog(commands.Cog):
             return
 
         async with user_service_ctx() as user_service:
-            user = await user_service.get_user_by_discord(discord_user.id)
+            user = await user_service.get_user_by_discord(game_author.id)
 
         async with game_service_ctx() as gs:
             games = await gs.get_list_by_author_id(user.id)
@@ -483,11 +483,11 @@ class GameSessionCog(commands.Cog):
             if session.discord_event_id and inter.guild:
                 try:
                     discord_event = await inter.guild.fetch_scheduled_event(session.discord_event_id)
-                    await discord_event.cancel()
+                    await discord_event.delete()  # было cancel()
                 except (disnake.NotFound, ValueError):
                     pass
                 except disnake.HTTPException as e:
-                    logger.warning("[session_cancel] Failed to cancel discord event: %s", e)
+                    logger.warning("[session_cancel] Failed to delete discord event: %s", e)
 
             if game:
                 await notify_game_channel(
@@ -554,6 +554,15 @@ class GameSessionCog(commands.Cog):
                     text=f"⛔ Сессия #{session.session_number} «{session.title}» помечена как недействительная.",
                     color=disnake.Color.dark_grey(),
                 )
+
+            if session.discord_event_id and inter.guild:
+                try:
+                    discord_event = await inter.guild.fetch_scheduled_event(session.discord_event_id)
+                    await discord_event.delete()
+                except (disnake.NotFound, ValueError):
+                    pass
+                except disnake.HTTPException as e:
+                    logger.warning("[session_invalidate] Failed to delete discord event: %s", e)
 
             await cb_inter.followup.send(
                 f"✅ Сессия **#{session.session_number}** «{session.title}» инвалидирована.",
