@@ -62,12 +62,13 @@ class GameSessionCog(commands.Cog):
         logger.info("[event_create] id=%s title=%r guild=%s", event.id, event.name, event.guild_id)
 
         async with game_session_service_ctx() as service:
-            game_id = await service.repo.find_game_id_by_event_title(event.name)
+            game_id = await service.find_game_id_by_event_title(event.name)
             if game_id is None:
                 logger.info("[event_create] No game matched for %r — skipping", event.name)
                 return
 
-            if await service.repo.get_by_discord_event_id(event.id):
+            existing = await service.get_session_by_event_id(event.id)
+            if existing:
                 logger.info("[event_create] Event %s already linked — skipping", event.id)
                 return
 
@@ -84,7 +85,7 @@ class GameSessionCog(commands.Cog):
                 session.id, session.session_number, game_id,
             )
 
-            game = await service.game_repo.get_by_id(game_id)
+            game = await service.get_game_by_session(session.id)
             if game:
                 await notify_game_channel(
                     self.bot,
@@ -107,7 +108,7 @@ class GameSessionCog(commands.Cog):
         duplicate_event_id: int | None = None
 
         async with game_session_service_ctx() as service:
-            session = await service.repo.get_by_discord_event_id(after.id)
+            session = await service.get_session_by_event_id(after.id)
             if not session:
                 return
 
@@ -149,7 +150,7 @@ class GameSessionCog(commands.Cog):
     ) -> None:
         logger.info("[event_delete] id=%s title=%r", event.id, event.name)
         async with game_session_service_ctx() as service:
-            session = await service.repo.get_by_discord_event_id(event.id)
+            session = await service.get_session_by_event_id(event.id)
             if not session:
                 return
 
@@ -157,7 +158,7 @@ class GameSessionCog(commands.Cog):
                 logger.info("[event_delete] Session %s already %s — skipping", session.id, session.status)
                 return
 
-            game = await service.game_repo.get_by_id(session.game_id)
+            game = await service.get_game_by_session(session.id)
             session_dto, discord_state = await service.cancel(session.id)
             logger.info("[event_delete] Session %s canceled", session.id)
 
@@ -187,8 +188,8 @@ class GameSessionCog(commands.Cog):
     ) -> int | None:
         logger.info("[event_start] id=%s title=%r guild=%s", event.id, event.name, event.guild_id)
 
-        game = await service.game_repo.get_by_id(session.game_id)
-        discord_state = await service.repo.get_discord_state(session.id)
+        game = await service.get_game_by_session(session.id)
+        discord_state = await service.get_discord_state(session.id)
 
         # ── Сценарий A: сессия уже запущена через сайт ──────────────────────
         if discord_state is not None:
@@ -196,7 +197,7 @@ class GameSessionCog(commands.Cog):
             attending_ids: list[int] = discord_state.get("attending_user_ids", [])
             if game:
                 anchor = await _get_role_anchor(event.guild_id)
-                char_names = await service.repo.get_player_characters(game.id, attending_ids)
+                char_names = await service.get_player_characters(session.id, attending_ids)
                 await assign_session_roles(
                     event.guild, game, session, attending_ids, char_names, anchor, service
                 )
@@ -245,7 +246,7 @@ class GameSessionCog(commands.Cog):
             return None
 
         # ── Сценарий C: нет игроков ──────────────────────────────────────────
-        player_entries = await service.repo.get_accepted_players_with_discord(session.game_id)
+        player_entries = await service.get_accepted_players_with_discord(session.id)
 
         if not player_entries:
             logger.info("[event_start] No players with discord_id for game %s", session.game_id)
@@ -276,7 +277,7 @@ class GameSessionCog(commands.Cog):
                 return session.discord_event_id
             if game:
                 anchor = await _get_role_anchor(event.guild_id)
-                char_names = await service.repo.get_player_characters(game.id, all_ids)
+                char_names = await service.get_player_characters(session.id, all_ids)
                 await assign_session_roles(event.guild, game, session, all_ids, char_names, anchor, service)
                 await notify_game_channel(
                     self.bot,
@@ -304,7 +305,7 @@ class GameSessionCog(commands.Cog):
         dup_event_id: int | None = None
 
         async with game_session_service_ctx() as svc:
-            session = await svc.repo.get_by_discord_event_id(event.id)
+            session = await svc.get_session_by_event_id(event.id)
             if not session:
                 logger.info("[event_start] Session canceled during AttendanceView — skipping start")
                 return None
@@ -317,10 +318,10 @@ class GameSessionCog(commands.Cog):
                 await _invalidate_duplicate(svc, session, game)
             else:
                 logger.info("[event_start] Session %s started, attending=%d", session.id, len(attending_ids))
-                game = await svc.game_repo.get_by_id(session.game_id)
+                game = await svc.get_game_by_session(session.id)
                 if game:
                     anchor = await _get_role_anchor(event.guild_id)
-                    char_names = await svc.repo.get_player_characters(game.id, attending_ids)
+                    char_names = await svc.get_player_characters(session.id, attending_ids)
                     await assign_session_roles(event.guild, game, session, attending_ids, char_names, anchor, svc)
                     await notify_game_channel(
                         self.bot,
@@ -344,8 +345,8 @@ class GameSessionCog(commands.Cog):
             logger.info("[event_end] Session %s is INVALID — skipping", session.id)
             return
 
-        discord_state = await service.repo.get_discord_state(session.id)
-        game = await service.game_repo.get_by_id(session.game_id)
+        discord_state = await service.get_discord_state(session.id)
+        game = await service.get_game_by_session(session.id)
 
         await service.complete(session.id)
         logger.info("[event_end] Session %s completed", session.id)
@@ -392,7 +393,7 @@ class GameSessionCog(commands.Cog):
             return
 
         async with game_session_service_ctx() as service:
-            existing = await service.repo.get_by_discord_event_id(discord_event_id)
+            existing = await service.get_session_by_event_id(discord_event_id)
             if existing:
                 await inter.followup.send(
                     f"⚠️ Для события уже существует сессия "
@@ -401,7 +402,7 @@ class GameSessionCog(commands.Cog):
                 )
                 return
 
-            gid = await service.repo.find_game_id_by_event_title(event.name)
+            gid = await service.find_game_id_by_event_title(event.name)
 
         if gid:
             await create_session_for_event(self, inter, event, gid)
@@ -467,7 +468,7 @@ class GameSessionCog(commands.Cog):
         ) -> None:
             async with game_session_service_ctx() as svc:
                 session, discord_state = await svc.cancel(selected_id)
-                game = await svc.game_repo.get_by_id(session.game_id)
+                game = await svc.get_game_by_session(session.id)
 
             if discord_state and inter.guild:
                 await restore_after_session(inter.guild, discord_state)
@@ -533,7 +534,7 @@ class GameSessionCog(commands.Cog):
         ) -> None:
             async with game_session_service_ctx() as svc:
                 session, discord_state = await svc.invalidate(selected_id)
-                game = await svc.game_repo.get_by_id(session.game_id)
+                game = await svc.get_game_by_session(session.id)
 
             if discord_state and inter.guild:
                 await restore_after_session(inter.guild, discord_state)
@@ -674,7 +675,7 @@ class GameSessionCog(commands.Cog):
             gid = UUID(selected_game_id)
 
             async with game_session_service_ctx() as gsc:
-                game = await gsc.game_repo.get_by_id(gid)
+                game = await gsc.get_game_by_game_id(gid)
                 total_all = await gsc.get_by_game_id(gid, page=1, page_size=1)
                 completed = await gsc.get_completed_by_game_id(gid, page=1, page_size=1)
                 active = await gsc.find_active_by_game_id(gid)

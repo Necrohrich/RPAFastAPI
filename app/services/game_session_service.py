@@ -2,7 +2,7 @@
 from typing import Optional
 from uuid import UUID
 
-from app.domain.entities import GameSession
+from app.domain.entities import GameSession, Game
 from app.domain.enums import GameSessionStatusEnum
 from app.domain.repositories import IGameSessionRepository, IGameRepository
 from app.dto import CreateGameSessionDTO, UpdateGameSessionDTO, GameSessionResponseDTO, PaginatedResponseDTO
@@ -26,7 +26,6 @@ _ALLOWED_TRANSITIONS: dict[GameSessionStatusEnum, set[GameSessionStatusEnum]] = 
     GameSessionStatusEnum.INVALID:   set(),
 }
 
-
 class GameSessionService:
     """
     Application service responsible for game session lifecycle management.
@@ -39,6 +38,8 @@ class GameSessionService:
         - Enforcement of the single-active-session-per-game rule
         - Linking Discord Scheduled Events to sessions manually (/session link)
         - Creating/deleting Discord states on start/complete/cancel/invalidate
+        - Discord-layer helpers: session/game lookup by event, discord_state access,
+          accepted players and character names for session roles
 
     Does NOT:
         - Handle authentication or token validation
@@ -241,9 +242,17 @@ class GameSessionService:
         return Mapper.entity_to_dto(session, GameSessionResponseDTO)
 
     async def get_by_discord_event_id(self, discord_event_id: int) -> GameSessionResponseDTO:
+        """Возвращает сессию по event_id. Бросает исключение если не найдена."""
         session = await self.repo.get_by_discord_event_id(discord_event_id)
         if not session:
             raise GameSessionNotFoundException()
+        return Mapper.entity_to_dto(session, GameSessionResponseDTO)
+
+    async def get_last_valid_by_game_id(self, game_id: UUID) -> Optional[GameSessionResponseDTO]:
+        """Последняя действительная сессия игры (не CANCELED/INVALID). Для /session info."""
+        session = await self.repo.get_last_valid_by_game_id(game_id)
+        if not session:
+            return None
         return Mapper.entity_to_dto(session, GameSessionResponseDTO)
 
     async def get_created_list_by_author_discord_id(self, discord_id: int) -> list[GameSessionResponseDTO]:
@@ -270,13 +279,6 @@ class GameSessionService:
             result.extend(Mapper.entity_to_dto(s, GameSessionResponseDTO) for s in sessions)
         return result
 
-    async def get_last_valid_by_game_id(self, game_id: UUID) -> Optional[GameSessionResponseDTO]:
-        """Последняя действительная сессия игры (не CANCELED/INVALID). Для /session info."""
-        session = await self.repo.get_last_valid_by_game_id(game_id)
-        if not session:
-            return None
-        return Mapper.entity_to_dto(session, GameSessionResponseDTO)
-
     async def get_non_invalid_list(self) -> list[GameSessionResponseDTO]:
         """Все сессии кроме INVALID. Используется в /session invalidate (MODERATOR+)."""
         sessions = await self.repo.get_by_statuses(
@@ -288,3 +290,39 @@ class GameSessionService:
             ]
         )
         return [Mapper.entity_to_dto(s, GameSessionResponseDTO) for s in sessions]
+
+    # ── discord helpers ───────────────────────────────────────────────────────
+
+    async def get_session_by_event_id(self, discord_event_id: int) -> Optional[GameSessionResponseDTO]:
+        """Возвращает сессию по event_id или None. Для слушателей событий."""
+        session = await self.repo.get_by_discord_event_id(discord_event_id)
+        if not session:
+            return None
+        return Mapper.entity_to_dto(session, GameSessionResponseDTO)
+
+    async def find_game_id_by_event_title(self, event_title: str) -> Optional[UUID]:
+        """Ищет game_id по названию Discord-события. Для слушателей событий."""
+        return await self.repo.find_game_id_by_event_title(event_title)
+
+    async def get_game_by_session(self, session_id: UUID) -> Optional[Game]:
+        """Возвращает игру по session_id."""
+        session = await self._get_or_raise(session_id)
+        return await self.game_repo.get_by_id(session.game_id)
+
+    async def get_game_by_game_id(self, game_id: UUID) -> Optional[Game]:
+        """Возвращает игру по game_id. Для /session info."""
+        return await self.game_repo.get_by_id(game_id)
+
+    async def get_discord_state(self, session_id: UUID) -> Optional[dict]:
+        """Публичный доступ к discord_state сессии."""
+        return await self.repo.get_discord_state(session_id)
+
+    async def get_accepted_players_with_discord(self, session_id: UUID) -> list[tuple[int, str]]:
+        """Принятые игроки с discord_id для сессии."""
+        session = await self._get_or_raise(session_id)
+        return await self.repo.get_accepted_players_with_discord(session.game_id)
+
+    async def get_player_characters(self, session_id: UUID, discord_ids: list[int]) -> dict[int, str]:
+        """Маппинг {discord_id: character_name} для участников сессии."""
+        session = await self._get_or_raise(session_id)
+        return await self.repo.get_player_characters(session.game_id, discord_ids)
