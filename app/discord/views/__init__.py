@@ -1,4 +1,5 @@
-__all__=[
+# app/discord/views/__init__.py
+__all__ = [
     "BaseView",
     "AuthView",
     "ProfileView",
@@ -12,7 +13,9 @@ __all__=[
     "GameSettingsView",
     "PlayerRequestActionView",
     "GamePageView",
-    "AttendanceView"
+    "AttendanceView",
+    "ReviewInviteView",
+    "ReviewFormView",
 ]
 
 from app.discord.views.attendance_view import AttendanceView
@@ -26,8 +29,8 @@ from app.discord.views.game_settings_view import GameSettingsView
 from app.discord.views.game_update_view import GameUpdateView
 from app.discord.views.pagination_view import PaginationView
 from app.discord.views.player_request_action_view import PlayerRequestActionView
-
 from app.discord.views.profile_view import ProfileView
-
+from app.discord.views.reviews.review_form_view import ReviewFormView
+from app.discord.views.reviews.review_invite_view import ReviewInviteView
 from app.discord.views.select_view import SelectView
 from app.discord.views.auth_view import AuthView

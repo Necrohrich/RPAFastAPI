@@ -7,7 +7,10 @@ __all__=[
     "SelectSearchModal",
     "CharacterCreateModal",
     "CharacterUpdateModal",
-    "GameCreateModal"
+    "GameCreateModal",
+    "ReviewCommentModal",
+    "ReviewNpcModal",
+    "ReviewSceneModal"
 ]
 
 from app.discord.modals.attach_email_modal import AttachEmailModal
@@ -22,5 +25,8 @@ from app.discord.modals.game_create_modal import GameCreateModal
 from app.discord.modals.login_modal import LoginModal
 
 from app.discord.modals.register_modal import RegisterModal
+from app.discord.modals.reviews.review_comment_modal import ReviewCommentModal
+from app.discord.modals.reviews.review_npc_modal import ReviewNpcModal
+from app.discord.modals.reviews.review_scene_modal import ReviewSceneModal
 
 from app.discord.modals.select_search_modal import SelectSearchModal
