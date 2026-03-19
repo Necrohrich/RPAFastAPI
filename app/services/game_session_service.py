@@ -5,6 +5,7 @@ from uuid import UUID
 from app.domain.entities import GameSession, Game
 from app.domain.enums import GameSessionStatusEnum
 from app.domain.repositories import IGameSessionRepository, IGameRepository
+from app.domain.repositories.game_repositories.game_review_repository import IGameReviewRepository
 from app.dto import CreateGameSessionDTO, UpdateGameSessionDTO, GameSessionResponseDTO, PaginatedResponseDTO
 from app.exceptions import (
     GameNotFoundException,
@@ -40,6 +41,7 @@ class GameSessionService:
         - Creating/deleting Discord states on start/complete/cancel/invalidate
         - Discord-layer helpers: session/game lookup by event, discord_state access,
           accepted players and character names for session roles
+        - On invalidate: soft-deletes all related game reviews via IGameReviewRepository
 
     Does NOT:
         - Handle authentication or token validation
@@ -52,9 +54,11 @@ class GameSessionService:
         self,
         repo: IGameSessionRepository,
         game_repo: IGameRepository,
+        review_repo: Optional[IGameReviewRepository] = None,
     ):
         self.repo = repo
         self.game_repo = game_repo
+        self.review_repo = review_repo
 
     # ── helpers ──────────────────────────────────────────────────────────────
 
@@ -131,12 +135,14 @@ class GameSessionService:
         return Mapper.entity_to_dto(updated, GameSessionResponseDTO)
 
     async def complete(self, session_id: UUID) -> GameSessionResponseDTO:
-        """Переводит сессию в COMPLETED и удаляет Discord-состояние."""
+        """Переводит сессию в COMPLETED. Discord-состояние НЕ удаляется —
+        оно нужно для системы отзывов (attending_user_ids).
+        Физическое удаление состояния перенесено в отдельный метод cleanup_discord_state."""
         session = await self._get_or_raise(session_id)
         self._check_transition(session.status, GameSessionStatusEnum.COMPLETED)
 
         updated = await self.repo.update_status(session_id, GameSessionStatusEnum.COMPLETED)
-        await self.repo.delete_discord_state(session_id)
+        # Не удаляем discord_state — система отзывов читает attending_user_ids из него.
         return Mapper.entity_to_dto(updated, GameSessionResponseDTO)
 
     async def cancel(self, session_id: UUID) -> tuple[GameSessionResponseDTO, Optional[dict]]:
@@ -150,13 +156,22 @@ class GameSessionService:
         return Mapper.entity_to_dto(updated, GameSessionResponseDTO), discord_state
 
     async def invalidate(self, session_id: UUID) -> tuple[GameSessionResponseDTO, Optional[dict]]:
-        """Переводит сессию в INVALID, возвращает DTO и discord_state до его удаления."""
+        """
+        Переводит сессию в INVALID, возвращает DTO и discord_state до его удаления.
+
+        Дополнительно: мягко удаляет все связанные отзывы (если review_repo передан).
+        """
         session = await self._get_or_raise(session_id)
         self._check_transition(session.status, GameSessionStatusEnum.INVALID)
 
         discord_state = await self.repo.get_discord_state(session_id)
         updated = await self.repo.update_status(session_id, GameSessionStatusEnum.INVALID)
         await self.repo.delete_discord_state(session_id)
+
+        # Мягко удаляем все отзывы этой сессии
+        if self.review_repo is not None:
+            await self.review_repo.soft_delete_by_session_id(session_id)
+
         return Mapper.entity_to_dto(updated, GameSessionResponseDTO), discord_state
 
     async def link_discord_event(
