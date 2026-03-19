@@ -2,9 +2,13 @@
 from __future__ import annotations
 
 import logging
+from uuid import UUID
 
 import disnake
 from disnake.ext import commands
+
+from app.discord.dependencies import game_session_service_ctx
+from app.dto import CreateGameSessionDTO
 
 logger = logging.getLogger(__name__)
 
@@ -71,3 +75,35 @@ async def delete_message_safe(
         await msg.delete()
     except (disnake.NotFound, disnake.HTTPException):
         pass
+
+async def create_session_for_event(
+        bot: commands.InteractionBot,
+        inter: disnake.MessageInteraction | disnake.ApplicationCommandInteraction,
+        event: disnake.GuildScheduledEvent,
+        gid: UUID,
+) -> None:
+    async with game_session_service_ctx() as service:
+        dto = CreateGameSessionDTO(
+            game_id=gid,
+            discord_event_id=event.id,
+            title=event.name,
+            description=event.description or "",
+            image_url=get_event_image_url(event),
+        )
+        session = await service.create(dto)
+        game = await service.game_repo.get_by_id(gid)
+
+    if game:
+        await notify_game_channel(
+            self.bot,
+            channel_id=game.discord_main_channel_id,
+            role_id=game.discord_role_id,
+            text=f"📅 Запланирована сессия #{session.session_number}: {session.title}",
+            color=disnake.Color.blue(),
+        )
+
+    await inter.followup.send(
+        f"✅ Сессия **#{session.session_number}** «{session.title}» создана "
+        f"и привязана к событию «{event.name}».",
+        ephemeral=True,
+    )

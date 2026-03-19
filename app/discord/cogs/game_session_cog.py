@@ -3,18 +3,19 @@ import logging
 from uuid import UUID
 
 import disnake
+from disnake import User
 from disnake.ext import commands
 
 from app.discord.dependencies import (
     game_session_service_ctx,
-    guild_settings_service_ctx,
+    guild_settings_service_ctx, auth_service_ctx, user_service_ctx, game_service_ctx,
 )
 from app.discord.embeds.build_session_publish_embed import build_session_publish_embed
 from app.discord.policies import require_role
 from app.discord.utils.event_utils import (
     get_event_image_url,
     notify_game_channel,
-    delete_message_safe,
+    delete_message_safe, create_session_for_event,
 )
 from app.discord.utils.session_roles import assign_session_roles, restore_after_session
 from app.discord.views import AttendanceView, SelectView
@@ -171,6 +172,9 @@ class GameSessionCog(commands.Cog):
             await service.cancel(session.id)
             logger.info("[event_delete] Session %s canceled", session.id)
 
+            if discord_state and event.guild:
+                await restore_after_session(event.guild, discord_state)
+
             if discord_state and discord_state.get("attendance_message_id"):
                 await delete_message_safe(
                     self.bot,
@@ -222,19 +226,19 @@ class GameSessionCog(commands.Cog):
             return None
 
         # ── helper: инвалидация при конфликте ────────────────────────────────
-        async def _invalidate_duplicate(active_svc, active_session, active_game) -> None:
+        async def _invalidate_duplicate(active_svc, duplicate_session, active_game) -> None:
             logger.warning(
                 "[event_start] Session %s cannot start — active session exists for game %s",
-                active_session.id, active_session.game_id,
+                duplicate_session.id, duplicate_session.game_id,
             )
-            await active_svc.invalidate(active_session.id)
+            await active_svc.invalidate(duplicate_session.id)
             if active_game:
                 await notify_game_channel(
                     self.bot,
                     channel_id=active_game.discord_main_channel_id,
                     role_id=active_game.discord_role_id,
                     text=(
-                        f"⚠️ Сессия #{active_session.session_number} «{active_session.title}» не может быть запущена — "
+                        f"⚠️ Сессия #{duplicate_session.session_number} «{duplicate_session.title}» не может быть запущена — "
                         f"для игры **{active_game.name}** уже существует активная сессия.\n"
                         f"Сессия помечена как **INVALID**, событие в Discord удалено."
                     ),
@@ -388,13 +392,13 @@ class GameSessionCog(commands.Cog):
 
     # ── /session link ─────────────────────────────────────────────────────────
 
-    @session.sub_command(name="link", description="Привязать Discord-событие к сессии [SUPPORT+]")
+    @session.sub_command(name="link", description="Создать сессию из Discord-события [SUPPORT+]")
     @require_role(PlatformPolicies.require_support)
     async def session_link(
-        self,
-        inter: disnake.ApplicationCommandInteraction,
-        event_id: str = commands.Param(description="ID Discord Scheduled Event"),
-        session_id: str = commands.Param(default=None, description="UUID сессии (опционально)"),
+            self,
+            inter: disnake.ApplicationCommandInteraction,
+            discord_user: User,
+            event_id: str = commands.Param(description="ID Discord Scheduled Event"),
     ) -> None:
         await inter.response.defer(ephemeral=True)
 
@@ -404,64 +408,79 @@ class GameSessionCog(commands.Cog):
             await inter.followup.send("❌ `event_id` должен быть числом.", ephemeral=True)
             return
 
-        # Если session_id передан напрямую — используем его без SelectView
-        if session_id:
-            try:
-                sid = UUID(session_id)
-            except ValueError:
-                await inter.followup.send("❌ `session_id` должен быть UUID.", ephemeral=True)
-                return
-            async with game_session_service_ctx() as service:
-                linked = await service.link_discord_event(sid, discord_event_id)
-            await inter.followup.send(
-                f"✅ Сессия **#{linked.session_number}** «{linked.title}» привязана к событию `{discord_event_id}`.",
-                ephemeral=True,
-            )
+        try:
+            event = await inter.guild.fetch_scheduled_event(discord_event_id)
+        except disnake.NotFound:
+            await inter.followup.send("❌ Discord-событие не найдено.", ephemeral=True)
             return
 
-        # Иначе — SelectView с CREATED-сессиями игр пользователя
         async with game_session_service_ctx() as service:
-            sessions = await service.get_created_list_by_author_discord_id(inter.author.id)
+            existing = await service.repo.get_by_discord_event_id(discord_event_id)
+            if existing:
+                await inter.followup.send(
+                    f"⚠️ Для события уже существует сессия "
+                    f"**#{existing.session_number}** «{existing.title}».",
+                    ephemeral=True,
+                )
+                return
 
-        if not sessions:
+            # Пробуем найти игру автоматически по названию события
+            gid = await service.repo.find_game_id_by_event_title(event.name)
+
+        # Если нашли — сразу создаём без SelectView
+        if gid:
+            await create_session_for_event(self, inter, event, gid)
+            return
+
+        # Иначе — предлагаем выбрать игру из списка
+        async with user_service_ctx() as user_service:
+            user = await user_service.get_user_by_discord(discord_user.id)
+
+        async with game_service_ctx() as service:
+            games = await service.get_list_by_author_id(user.id)
+
+        if not games:
             await inter.followup.send(
-                "❌ У вас нет запланированных сессий (статус CREATED).", ephemeral=True
+                f"❌ Не удалось найти игру по названию «{event.name}».\n"
+                f"У пользователя нет доступных игр.",
+                ephemeral=True,
             )
             return
 
-        async def on_session_selected(
-            cb_inter: disnake.MessageInteraction, selected_id: UUID
+        async def on_game_selected(
+                cb_inter: disnake.MessageInteraction, selected_game_id: str
         ) -> None:
-            async with game_session_service_ctx() as svc:
-                selected_linked = await svc.link_discord_event(selected_id, discord_event_id)
-            await cb_inter.followup.send(
-                f"✅ Сессия **#{selected_linked.session_number}** "
-                f"«{selected_linked.title}» привязана к событию `{discord_event_id}`.",
-                ephemeral=True,
-            )
+            await create_session_for_event(self, cb_inter, event, UUID(selected_game_id))
 
         view = SelectView(
-            items=sessions,
-            display_field="title",
-            title="Выберите сессию для привязки",
-            callback=on_session_selected,
+            items=games,
+            display_field="name",
+            title="Выберите игру",
+            callback=on_game_selected,
             skippable=False,
         )
-        await inter.followup.send("Выберите сессию:", view=view, ephemeral=True)
+        await inter.followup.send(
+            f"Игра не найдена автоматически по названию «{event.name}».\nВыберите игру:",
+            view=view,
+            ephemeral=True,
+        )
 
     # ── /session cancel ───────────────────────────────────────────────────────
 
     @session.sub_command(name="cancel", description="Отменить игровую сессию [MODERATOR+]")
     @require_role(PlatformPolicies.require_moderator)
     async def session_cancel(
-        self,
-        inter: disnake.ApplicationCommandInteraction,
+            self,
+            inter: disnake.ApplicationCommandInteraction,
     ) -> None:
         await inter.response.defer(ephemeral=True)
 
         async with game_session_service_ctx() as service:
             sessions = await service.get_non_invalid_list()
-            sessions = [s for s in sessions if s.status.value in ("CREATED", "ACTIVE")]
+            sessions = [
+                s for s in sessions
+                if s.status in (GameSessionStatusEnum.CREATED, GameSessionStatusEnum.ACTIVE)
+            ]
 
         if not sessions:
             await inter.followup.send(
@@ -477,6 +496,10 @@ class GameSessionCog(commands.Cog):
                 session = await svc.cancel(selected_id)
                 game = await svc.game_repo.get_by_id(session.game_id)
 
+            # Восстанавливаем ники и удаляем роль если сессия была ACTIVE
+            if discord_state and inter.guild:
+                await restore_after_session(inter.guild, discord_state)
+
             if discord_state and discord_state.get("attendance_message_id") and game:
                 await delete_message_safe(
                     self.bot,
@@ -484,7 +507,6 @@ class GameSessionCog(commands.Cog):
                     message_id=discord_state["attendance_message_id"],
                 )
 
-            # Отменяем Discord-событие если оно привязано
             if session.discord_event_id and inter.guild:
                 try:
                     discord_event = await inter.guild.fetch_scheduled_event(session.discord_event_id)
@@ -522,8 +544,8 @@ class GameSessionCog(commands.Cog):
     @session.sub_command(name="invalidate", description="Пометить сессию как недействительную [MODERATOR+]")
     @require_role(PlatformPolicies.require_moderator)
     async def session_invalidate(
-        self,
-        inter: disnake.ApplicationCommandInteraction,
+            self,
+            inter: disnake.ApplicationCommandInteraction,
     ) -> None:
         await inter.response.defer(ephemeral=True)
 
@@ -535,12 +557,15 @@ class GameSessionCog(commands.Cog):
             return
 
         async def on_session_selected(
-            cb_inter: disnake.MessageInteraction, selected_id: UUID
+                cb_inter: disnake.MessageInteraction, selected_id: UUID
         ) -> None:
             async with game_session_service_ctx() as svc:
                 discord_state = await svc.repo.get_discord_state(selected_id)
                 session = await svc.invalidate(selected_id)
                 game = await svc.game_repo.get_by_id(session.game_id)
+
+            if discord_state and inter.guild:
+                await restore_after_session(inter.guild, discord_state)
 
             if discord_state and discord_state.get("attendance_message_id") and game:
                 await delete_message_safe(
@@ -574,45 +599,137 @@ class GameSessionCog(commands.Cog):
 
     # ── /session publish ──────────────────────────────────────────────────────
 
-    @session.sub_command(name="publish", description="Опубликовать завершённые сессии игры [SUPPORT+]")
+    @session.sub_command(
+        name="publish",
+        description="Опубликовать завершённые сессии игры [SUPPORT+]"
+    )
     @require_role(PlatformPolicies.require_support)
     async def session_publish(
-        self,
-        inter: disnake.ApplicationCommandInteraction,
-        game_id: str = commands.Param(description="UUID игры"),
-        from_session: int = commands.Param(default=None, description="С какой сессии (включительно)"),
-        to_session: int = commands.Param(default=None, description="По какую сессию (включительно)"),
+            self,
+            inter: disnake.ApplicationCommandInteraction,
+            from_session: int = commands.Param(
+                default=None,
+                description="С какой сессии включительно (по умолчанию — только последняя)"
+            ),
+            to_session: int = commands.Param(
+                default=None,
+                description="По какую сессию включительно (по умолчанию — только последняя)"
+            ),
     ) -> None:
-        await inter.response.defer(ephemeral=False)
-
-        try:
-            gid = UUID(game_id)
-        except ValueError:
-            await inter.followup.send("❌ `game_id` должен быть UUID.", ephemeral=True)
-            return
+        await inter.response.defer(ephemeral=True)
 
         async with game_session_service_ctx() as service:
-            result = await service.get_completed_by_game_id(
-                game_id=gid,
-                page=1,
-                page_size=200,
-                from_number=from_session,
-                to_number=to_session,
-            )
+            games = await service.game_repo.get_list_by_author_discord_id(inter.author.id)
 
-        sessions = result.items
-
-        # Если диапазон не указан — только последняя завершённая
-        if from_session is None and to_session is None:
-            sessions = sessions[-1:] if sessions else []
-
-        if not sessions:
-            await inter.followup.send("❌ Завершённых сессий не найдено.", ephemeral=True)
+        if not games:
+            await inter.followup.send("❌ У вас нет игр.", ephemeral=True)
             return
 
-        for s in sessions:
-            await inter.channel.send(embed=build_session_publish_embed(s))
+        async def on_game_selected(
+                cb_inter: disnake.MessageInteraction, selected_game_id: str
+        ) -> None:
+            gid = UUID(selected_game_id)
 
-        await inter.followup.send(
-            f"✅ Опубликовано {len(sessions)} сессий.", ephemeral=True
+            async with game_session_service_ctx() as gsc:
+                result = await gsc.get_completed_by_game_id(
+                    game_id=gid,
+                    page=1,
+                    page_size=200,
+                    from_number=from_session,
+                    to_number=to_session,
+                )
+
+            sessions = result.items
+
+            if from_session is None and to_session is None:
+                sessions = sessions[-1:] if sessions else []
+                range_text = "последняя завершённая сессия"
+            else:
+                parts = []
+                if from_session:
+                    parts.append(f"с #{from_session}")
+                if to_session:
+                    parts.append(f"по #{to_session}")
+                range_text = " ".join(parts)
+
+            if not sessions:
+                await cb_inter.followup.send("❌ Завершённых сессий не найдено.", ephemeral=True)
+                return
+
+            for s in sessions:
+                await inter.channel.send(embed=build_session_publish_embed(s))
+
+            await cb_inter.followup.send(
+                f"✅ Опубликовано {len(sessions)} сессий ({range_text}).\n"
+                f"💡 Всего завершённых: **{result.total}**.",
+                ephemeral=True,
+            )
+
+        view = SelectView(
+            items=games,
+            display_field="name",
+            title="Выберите игру",
+            callback=on_game_selected,
+            skippable=False,
         )
+        await inter.followup.send("Выберите игру:", view=view, ephemeral=True)
+
+    @session.sub_command(name="info", description="Статистика сессий игры [SUPPORT+]")
+    @require_role(PlatformPolicies.require_support)
+    async def session_info(
+            self,
+            inter: disnake.ApplicationCommandInteraction,
+    ) -> None:
+        await inter.response.defer(ephemeral=True)
+
+        async with game_session_service_ctx() as service:
+            games = await service.game_repo.get_list_by_author_discord_id(inter.author.id)
+
+        if not games:
+            await inter.followup.send("❌ У вас нет игр.", ephemeral=True)
+            return
+
+        async def on_game_selected(
+                cb_inter: disnake.MessageInteraction, selected_game_id: str
+        ) -> None:
+            gid = UUID(selected_game_id)
+
+            async with game_session_service_ctx() as gsc:
+                game = await gsc.game_repo.get_by_id(gid)
+                total_all = await gsc.repo.count_by_game_id(gid)
+                completed = await gsc.repo.count_completed_by_game_id(gid)
+                last_valid = await gsc.repo.get_last_valid_by_game_id(gid)
+                active = await gsc.repo.get_active_by_game_id(gid)
+
+            embed = disnake.Embed(
+                title=f"📊 Статистика сессий — {game.name}",
+                color=disnake.Color.blurple(),
+            )
+            embed.add_field(name="Всего сессий", value=str(total_all), inline=True)
+            embed.add_field(name="Завершённых", value=str(completed), inline=True)
+            embed.add_field(
+                name="Активная",
+                value=f"#{active.session_number} «{active.title}»" if active else "нет",
+                inline=True,
+            )
+            embed.add_field(
+                name="Последняя действительная",
+                value=f"#{last_valid.session_number} «{last_valid.title}»" if last_valid else "нет",
+                inline=False,
+            )
+            if completed > 0:
+                embed.set_footer(
+                    text=f"Для публикации: /session publish "
+                         f"[from_session:1 to_session:{last_valid.session_number if last_valid else '?'}]"
+                )
+
+            await cb_inter.followup.send(embed=embed, ephemeral=True)
+
+        view = SelectView(
+            items=games,
+            display_field="name",
+            title="Выберите игру",
+            callback=on_game_selected,
+            skippable=False,
+        )
+        await inter.followup.send("Выберите игру:", view=view, ephemeral=True)
