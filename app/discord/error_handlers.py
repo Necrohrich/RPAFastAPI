@@ -149,6 +149,37 @@ _ERROR_MAP: dict[type[Exception], tuple[str, str, disnake.Color]] = {
         "Произошла ошибка при работе с игровой сессией. Попробуйте позже.",
         disnake.Color.red(),
     ),
+    # ── Game Review exceptions ────────────────────────────────
+    GameReviewNotFoundException: (
+        "Отзыв не найден",
+        "Отзыв с указанным ID не найден.",
+        disnake.Color.yellow(),
+    ),
+    GameReviewAlreadyExistsException: (
+        "Отзыв уже существует",
+        "Вы уже оставили отзыв на эту сессию.",
+        disnake.Color.orange(),
+    ),
+    GameReviewAlreadySentException: (
+        "Отзыв уже отправлен",
+        "Отправленный отзыв нельзя изменить.",
+        disnake.Color.orange(),
+    ),
+    GameReviewNotAllowedException: (
+        "Нет доступа",
+        "Вы не можете оставить отзыв на эту сессию.",
+        disnake.Color.red(),
+    ),
+    GameReviewInvalidStatusTransitionException: (
+        "Недопустимый статус",
+        "Невозможно изменить статус отзыва.",
+        disnake.Color.orange(),
+    ),
+    GameReviewError: (
+        "Ошибка отзыва",
+        "Произошла ошибка при работе с отзывом. Попробуйте позже.",
+        disnake.Color.red(),
+    ),
     # ── Game system exceptions ───────────────────────────────
     GameSystemHasDependenciesException: (
         "Невозможно удалить",
