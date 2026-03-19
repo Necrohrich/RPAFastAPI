@@ -95,7 +95,7 @@ async def create_session_for_event(
 
     if game:
         await notify_game_channel(
-            self.bot,
+            bot,
             channel_id=game.discord_main_channel_id,
             role_id=game.discord_role_id,
             text=f"📅 Запланирована сессия #{session.session_number}: {session.title}",
