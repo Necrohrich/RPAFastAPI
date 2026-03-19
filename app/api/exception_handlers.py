@@ -8,7 +8,9 @@ from app.exceptions import CharacterPermissionException, CharacterGameSystemMism
     CharacterAlreadyExistsException, CharacterNotFoundException, NotGameAuthorException, PlayerNotFoundException, \
     PlayerAlreadyInGameException, GameAlreadyExistsException, GameNotFoundException, GameSystemAlreadyExistsException, \
     GameSystemNotFoundException, GameSystemHasDependenciesException, CharacterGameSystemAlreadySetException, \
-    GameSessionInvalidStatusTransitionException, GameSessionAlreadyActiveException, GameSessionNotFoundException
+    GameSessionInvalidStatusTransitionException, GameSessionAlreadyActiveException, GameSessionNotFoundException, \
+    GameReviewNotFoundException, GameReviewInvalidStatusTransitionException, GameReviewNotAllowedException, \
+    GameReviewAlreadySentException, GameReviewAlreadyExistsException
 from app.exceptions.auth_exceptions import InvalidCredentials, InvalidToken, TokenExpired
 from app.exceptions.common_exceptions import NotFoundError, ValidationError, PermissionDenied
 from app.exceptions.user_exceptions import (
@@ -58,10 +60,17 @@ EXCEPTION_MAP: dict[type[Exception], tuple[int, str]] = {
     GameSessionNotFoundException:                   (status.HTTP_404_NOT_FOUND,   "Game session not found"),
     GameSessionAlreadyActiveException:              (status.HTTP_409_CONFLICT,    "Game already has an active session"),
     GameSessionInvalidStatusTransitionException:    (status.HTTP_409_CONFLICT,    "Invalid session status transition"),
+
+    # Game Review
+    GameReviewNotFoundException:                    (status.HTTP_404_NOT_FOUND,   "Game review not found"),
+    GameReviewAlreadyExistsException:               (status.HTTP_409_CONFLICT,    "Player already submitted a review for this session"),
+    GameReviewAlreadySentException:                 (status.HTTP_409_CONFLICT,    "Review has already been sent and cannot be modified"),
+    GameReviewNotAllowedException:                  (status.HTTP_403_FORBIDDEN,   "User is not allowed to leave a review for this session"),
+    GameReviewInvalidStatusTransitionException:     (status.HTTP_409_CONFLICT,    "Invalid review status transition"),
 }
 
 
-async def app_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+async def app_exception_handler(_: Request, exc: Exception) -> JSONResponse:
     status_code, detail = EXCEPTION_MAP.get(
         type(exc),
         (status.HTTP_500_INTERNAL_SERVER_ERROR, "Internal server error")
@@ -69,9 +78,9 @@ async def app_exception_handler(request: Request, exc: Exception) -> JSONRespons
     return JSONResponse(status_code=status_code, content={"detail": detail})
 
 
-async def validation_error_handler(request: Request, exc: ValidationError) -> JSONResponse:
+async def validation_error_handler(_: Request, exc: ValidationError) -> JSONResponse:
     return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content={"detail": str(exc)})
 
 
-async def integrity_error_handler(request: Request, exc: IntegrityError) -> JSONResponse:
+async def integrity_error_handler(_: Request, exc: IntegrityError) -> JSONResponse:
     return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content={"detail": "Database constraint error"})

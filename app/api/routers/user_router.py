@@ -1,9 +1,13 @@
 # app/api/routers/user_router.py
+from typing import Optional
 
 from fastapi import APIRouter, Depends, status
+
+from app.domain.enums import ReviewStatusEnum
+from app.services import GameReviewService
 from app.services.user_service import UserService
-from app.api.dependencies import get_user_service, get_current_user
-from app.dto import PaginatedResponseDTO, GameResponseDTO, CharacterResponseDTO
+from app.api.dependencies import get_user_service, get_current_user, get_game_review_service
+from app.dto import PaginatedResponseDTO, GameResponseDTO, CharacterResponseDTO, GameReviewResponseDTO
 from app.dto.auth_dtos import UserDTO, ChangePasswordDTO, DiscordDTO, SecondaryEmailDTO
 
 router = APIRouter(
@@ -90,3 +94,26 @@ async def get_my_characters(
     service: UserService = Depends(get_user_service),
 ):
     return await service.get_my_characters(current_user.id, page=page, page_size=page_size)
+
+# ────────────────────────────────────────────────────────────
+# Мои отзывы
+# ────────────────────────────────────────────────────────────
+
+@router.get(
+    "/me/reviews",
+    response_model=PaginatedResponseDTO[GameReviewResponseDTO],
+)
+async def get_my_reviews(
+        page: int = 1,
+        page_size: int = 20,
+        statuses: Optional[list[ReviewStatusEnum]] = None,
+        current_user: UserDTO = Depends(get_current_user),
+        service: GameReviewService = Depends(get_game_review_service),
+):
+    """Отзывы текущего пользователя. По умолчанию только SEND."""
+    return await service.get_by_user_id(
+        current_user.id,
+        page=page,
+        page_size=page_size,
+        statuses=statuses,
+    )

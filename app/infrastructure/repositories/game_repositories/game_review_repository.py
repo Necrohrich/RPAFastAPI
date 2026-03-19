@@ -304,7 +304,7 @@ class GameReviewRepository(IGameReviewRepository):
             FROM game_reviews,
                  jsonb_array_elements_text(best_npc) AS npc_name
             WHERE game_id = :game_id
-              AND status = 'send'
+              AND status = 'SEND'
               AND deleted_at IS NULL
               AND best_npc IS NOT NULL
             GROUP BY lower(npc_name)
@@ -335,7 +335,7 @@ class GameReviewRepository(IGameReviewRepository):
             FROM game_reviews,
                  jsonb_each_text(best_scenes) AS scenes(scene_name, scene_type)
             WHERE game_id = :game_id
-              AND status = 'send'
+              AND status = 'SEND'
               AND deleted_at IS NULL
               AND best_scenes IS NOT NULL
             GROUP BY lower(scene_name), scene_type

@@ -1,17 +1,17 @@
 # app/api/routers/admin_router.py
-
 from fastapi import APIRouter, Depends, status
 from uuid import UUID
 
 from app.api.security import require_superadmin, require_support, require_moderator
 from app.domain.enums.platform_role_enum import PlatformRoleEnum
 from app.dto import GameSystemResponseDTO, CreateGameSystemDTO, PaginatedResponseDTO, UpdateGameSystemDTO, \
-    GameSessionResponseDTO
+    GameSessionResponseDTO, GameReviewStatsDTO, GameReviewRatingStatsDTO, PlayerStatDTO, SceneStatDTO, NpcStatDTO
 from app.services import GameSystemService, CharacterService, GameService, GameSessionService
 from app.services.auth_service import AuthService
+from app.services.game_review_service import GameReviewService
 from app.services.user_service import UserService
 from app.api.dependencies import get_user_service, get_auth_service, get_game_system_service, get_character_service, \
-    get_game_service, get_game_session_service
+    get_game_service, get_game_session_service, get_game_review_service
 from app.dto.auth_dtos import UserDTO
 
 router = APIRouter(
@@ -199,3 +199,113 @@ async def invalidate_game_session(
         service: GameSessionService = Depends(get_game_session_service),
 ):
     return await service.invalidate(session_id)
+
+
+# ────────────────────────────────────────────────────────────
+# Game Reviews
+# ────────────────────────────────────────────────────────────
+
+@router.post(
+    "/game-reviews/{review_id}/restore",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_moderator)],
+)
+async def restore_game_review(
+        review_id: UUID,
+        service: GameReviewService = Depends(get_game_review_service),
+):
+    """Восстановить мягко удалённый отзыв. MODERATOR+."""
+    await service.restore(review_id)
+
+
+@router.delete(
+    "/game-reviews/{review_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_superadmin)],
+)
+async def delete_game_review(
+        review_id: UUID,
+        service: GameReviewService = Depends(get_game_review_service),
+):
+    """Физически удалить отзыв. SUPERADMIN."""
+    await service.delete(review_id)
+
+
+@router.delete(
+    "/game-reviews/{review_id}/soft",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_moderator)],
+)
+async def soft_delete_game_review(
+        review_id: UUID,
+        service: GameReviewService = Depends(get_game_review_service),
+):
+    """Мягко удалить отзыв. MODERATOR+."""
+    await service.soft_delete(review_id)
+
+
+# ── Статистика ────────────────────────────────────────────────────────────────
+
+@router.get(
+    "/game-reviews/stats/npc",
+    response_model=list[NpcStatDTO],
+    dependencies=[Depends(require_support)],
+)
+async def get_npc_stats(
+        game_id: UUID,
+        service: GameReviewService = Depends(get_game_review_service),
+):
+    """Статистика упоминаний НИП по игре, сортировка по убыванию. SUPPORT+."""
+    return await service.get_stats_npc(game_id)
+
+
+@router.get(
+    "/game-reviews/stats/scenes",
+    response_model=list[SceneStatDTO],
+    dependencies=[Depends(require_support)],
+)
+async def get_scenes_stats(
+        game_id: UUID,
+        service: GameReviewService = Depends(get_game_review_service),
+):
+    """Статистика упоминаний сцен по игре, сортировка по убыванию. SUPPORT+."""
+    return await service.get_stats_scenes(game_id)
+
+
+@router.get(
+    "/game-reviews/stats/players",
+    response_model=list[PlayerStatDTO],
+    dependencies=[Depends(require_support)],
+)
+async def get_players_stats(
+        game_id: UUID,
+        service: GameReviewService = Depends(get_game_review_service),
+):
+    """Статистика лучших игроков по игре, сортировка по убыванию. SUPPORT+."""
+    return await service.get_stats_players(game_id)
+
+
+@router.get(
+    "/game-reviews/stats/rating",
+    response_model=GameReviewRatingStatsDTO,
+    dependencies=[Depends(require_support)],
+)
+async def get_rating_stats(
+        game_id: UUID,
+        service: GameReviewService = Depends(get_game_review_service),
+):
+    """Справедливая взвешенная оценка игры. SUPPORT+."""
+    return await service.get_stats_rating(game_id)
+
+
+@router.get(
+    "/game-reviews/stats/full",
+    response_model=GameReviewStatsDTO,
+    dependencies=[Depends(require_support)],
+)
+async def get_full_stats(
+        game_id: UUID,
+        service: GameReviewService = Depends(get_game_review_service),
+):
+    """Полная статистика по игре (НИП + сцены + игроки + оценка). SUPPORT+."""
+    return await service.get_full_stats(game_id)

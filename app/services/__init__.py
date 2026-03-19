@@ -5,10 +5,12 @@ __all__=[
     "CharacterService",
     "GameService",
     "GameSessionService",
+    "GameReviewService",
     "GuildDiscordSettingsService"
 ]
 
 from app.services.character_service import CharacterService
+from app.services.game_review_service import GameReviewService
 from app.services.game_service import GameService
 from app.services.game_session_service import GameSessionService
 from app.services.game_system_service import GameSystemService

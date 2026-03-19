@@ -21,7 +21,7 @@ from app.dto.game_review_dtos import (
     PlayerStatDTO,
 )
 from app.dto.common_dtos import PaginatedResponseDTO
-from app.exceptions.common_exceptions import NotFoundError
+from app.exceptions.common_exceptions import NotFoundError, ValidationError
 from app.exceptions.game_exceptions import GameNotFoundException
 from app.exceptions.game_session_exceptions import GameSessionNotFoundException
 from app.exceptions.game_review_exceptions import (
@@ -33,12 +33,11 @@ from app.exceptions.game_review_exceptions import (
 )
 from app.utils.mapper import Mapper
 
-# Числовые веса рейтингов для расчёта оценки
 _RATING_WEIGHTS: dict[str, int] = {
-    ReviewRatingEnum.TERRIBLE: 0,
-    ReviewRatingEnum.BAD:      1,
-    ReviewRatingEnum.NEUTRAL:  2,
-    ReviewRatingEnum.GOOD:     3,
+    ReviewRatingEnum.TERRIBLE:  0,
+    ReviewRatingEnum.BAD:       1,
+    ReviewRatingEnum.NEUTRAL:   2,
+    ReviewRatingEnum.GOOD:      3,
     ReviewRatingEnum.EXCELLENT: 4,
 }
 
@@ -50,7 +49,6 @@ _RATING_LABELS: list[ReviewRatingEnum] = [
     ReviewRatingEnum.EXCELLENT,
 ]
 
-# Допустимые переходы статусов
 _ALLOWED_TRANSITIONS: dict[ReviewStatusEnum, set[ReviewStatusEnum]] = {
     ReviewStatusEnum.CREATED:  {ReviewStatusEnum.SEND, ReviewStatusEnum.CANCELED},
     ReviewStatusEnum.SEND:     set(),
@@ -62,27 +60,15 @@ class GameReviewService:
     """
     Application service responsible for game review management.
 
-    Handles:
-        - Automatic creation of reviews for attending players on session completion
-        - Updating review fields (only while CREATED)
-        - Sending (SEND) and canceling (CANCELED) reviews
-        - Retrieval by ID, game, session, user — paginated and list variants
-        - Statistics: best NPC, scenes, players, weighted rating for a game
-        - Soft delete, restore, hard delete
-        - Bulk soft delete on session invalidation
-
-    Responsibilities:
-        - Validates player eligibility (must be ACCEPTED player, not author/GM, must have attended)
-        - Prevents duplicate reviews per session per user
-        - Prevents editing SEND reviews
-        - Uses IGameSessionRepository to verify session existence and attendance
-        - Uses IGameRepository to verify game existence and author identity
-        - Uses IUserRepository to verify user existence
-
-    Does NOT:
-        - Handle authentication or token validation
-        - Manage Discord interactions directly
-        - Contain infrastructure or persistence logic
+    Presence check logic:
+        - If discord_state exists AND attending_user_ids is NON-EMPTY →
+          check that user's primary_discord_id or secondary_discord_id is in the list.
+        - If discord_state is None OR attending_user_ids is empty ([]) →
+          skip presence check. This covers sessions started via the site
+          without AttendanceView (start() called with attending_user_ids=[]).
+          In this case ACCEPTED player status is sufficient.
+        - If user has no discord_id at all and attending_user_ids is non-empty →
+          presence cannot be verified → skip check (benefit of the doubt).
     """
 
     def __init__(
@@ -116,10 +102,10 @@ class GameReviewService:
         1. Игра существует.
         2. Сессия существует и принадлежит игре.
         3. Пользователь существует.
-        4. Пользователь не является автором игры или GM.
+        4. Пользователь не является автором игры.
         5. Пользователь является ACCEPTED игроком игры.
-        6. Пользователь присутствовал на сессии (attending_user_ids в discord_state).
-        7. Отзыв на эту сессию ещё не создавался.
+        6. Проверка присутствия (только если attending_user_ids непустой).
+        7. Нет дубликата отзыва на эту сессию.
         """
         game = await self.game_repo.get_by_id(dto.game_id)
         if not game:
@@ -129,39 +115,41 @@ class GameReviewService:
         if not session or session.game_id != dto.game_id:
             raise GameSessionNotFoundException()
 
-        if not await self.user_repo.get_by_id(dto.user_id):
+        user = await self.user_repo.get_by_id(dto.user_id)
+        if not user:
             raise NotFoundError()
 
         # Автор игры не может оставить отзыв
         if game.author_id == dto.user_id:
-            raise GameReviewNotAllowedException(
-                "Game author cannot leave a review"
-            )
+            raise GameReviewNotAllowedException("Game author cannot leave a review")
 
         # Пользователь должен быть принятым игроком
         from app.domain.enums.player_status_enum import PlayerStatusEnum
         player = await self.game_repo.get_player(dto.game_id, dto.user_id)
         if not player or player.status != PlayerStatusEnum.ACCEPTED:
-            raise GameReviewNotAllowedException(
-                "Only accepted players can leave a review"
-            )
+            raise GameReviewNotAllowedException("Only accepted players can leave a review")
 
-        # Проверка присутствия: смотрим discord_state сессии.
-        # Состояние не удаляется, а мягко удаляется (согласно решению в таске),
-        # поэтому get_discord_state вернёт данные даже после завершения сессии.
+        # Проверка присутствия.
+        # attending_user_ids хранит discord_id (int).
+        # Проверка активна ТОЛЬКО если список непустой.
+        # Пустой список = сессия запущена через сайт без AttendanceView → пропускаем.
         discord_state = await self.session_repo.get_discord_state(dto.session_id)
         if discord_state is not None:
             attending_ids: list = discord_state.get("attending_user_ids") or []
-            # attending_user_ids хранит discord_id, а не user_id.
-            # Получаем discord_id пользователя через user_repo.
-            user = await self.user_repo.get_by_id(dto.user_id)
-            if user and user.primary_discord_id is not None:
-                if user.primary_discord_id not in attending_ids:
+            if attending_ids:
+                # Собираем все discord_id пользователя
+                user_discord_ids: set[int] = set()
+                if user.primary_discord_id is not None:
+                    user_discord_ids.add(user.primary_discord_id)
+                if user.secondary_discord_id is not None:
+                    user_discord_ids.add(user.secondary_discord_id)
+
+                # Если у пользователя нет ни одного discord_id — не можем
+                # проверить присутствие, пропускаем (даём benefit of the doubt).
+                if user_discord_ids and not user_discord_ids.intersection(attending_ids):
                     raise GameReviewNotAllowedException(
                         "User was not present at the session"
                     )
-        # Если discord_state нет (сессия создана через сайт без attendance),
-        # то проверку присутствия пропускаем — достаточно статуса ACCEPTED.
 
         # Дубликат отзыва
         existing = await self.repo.get_by_session_id_and_user_id(
@@ -195,9 +183,7 @@ class GameReviewService:
             raise GameReviewAlreadySentException()
 
         if review.status == ReviewStatusEnum.CANCELED:
-            raise GameReviewInvalidStatusTransitionException(
-                "Cannot edit a canceled review"
-            )
+            raise GameReviewInvalidStatusTransitionException("Cannot edit a canceled review")
 
         if dto.rating is not None:
             review.rating = dto.rating
@@ -218,7 +204,7 @@ class GameReviewService:
     async def send(
         self, review_id: UUID, dto: SendGameReviewDTO, requester_id: UUID
     ) -> GameReviewResponseDTO:
-        """Отправляет отзыв (CREATED → SEND). Требует заполненных rating и comment."""
+        """Отправляет отзыв (CREATED → SEND). Требует rating и непустого comment."""
         review = await self.repo.get_by_id(review_id, include_deleted=False)
         if not review:
             raise GameReviewNotFoundException()
@@ -229,11 +215,9 @@ class GameReviewService:
         self._check_transition(review.status, ReviewStatusEnum.SEND)
 
         if not review.rating:
-            from app.exceptions.common_exceptions import ValidationError
             raise ValidationError("Rating is required before sending a review")
 
         if not review.comment or not review.comment.strip():
-            from app.exceptions.common_exceptions import ValidationError
             raise ValidationError("Comment is required before sending a review")
 
         review.status = ReviewStatusEnum.SEND
@@ -282,10 +266,10 @@ class GameReviewService:
         offset = (page - 1) * page_size
         items = await self.repo.get_by_game_id(
             game_id, offset=offset, limit=page_size,
-            statuses=statuses, include_deleted=include_deleted
+            statuses=statuses, include_deleted=include_deleted,
         )
         total = await self.repo.count_by_game_id(
-            game_id, statuses=statuses, include_deleted=include_deleted
+            game_id, statuses=statuses, include_deleted=include_deleted,
         )
         return PaginatedResponseDTO(
             items=[Mapper.entity_to_dto(r, GameReviewResponseDTO) for r in items],
@@ -302,7 +286,7 @@ class GameReviewService:
         if not await self.game_repo.get_by_id(game_id):
             raise GameNotFoundException()
         items = await self.repo.get_list_by_game_id(
-            game_id, statuses=statuses, include_deleted=include_deleted
+            game_id, statuses=statuses, include_deleted=include_deleted,
         )
         return [Mapper.entity_to_dto(r, GameReviewResponseDTO) for r in items]
 
@@ -319,10 +303,10 @@ class GameReviewService:
         offset = (page - 1) * page_size
         items = await self.repo.get_by_session_id(
             session_id, offset=offset, limit=page_size,
-            statuses=statuses, include_deleted=include_deleted
+            statuses=statuses, include_deleted=include_deleted,
         )
         total = await self.repo.count_by_session_id(
-            session_id, statuses=statuses, include_deleted=include_deleted
+            session_id, statuses=statuses, include_deleted=include_deleted,
         )
         return PaginatedResponseDTO(
             items=[Mapper.entity_to_dto(r, GameReviewResponseDTO) for r in items],
@@ -339,7 +323,7 @@ class GameReviewService:
         if not await self.session_repo.get_by_id(session_id):
             raise GameSessionNotFoundException()
         items = await self.repo.get_list_by_session_id(
-            session_id, statuses=statuses, include_deleted=include_deleted
+            session_id, statuses=statuses, include_deleted=include_deleted,
         )
         return [Mapper.entity_to_dto(r, GameReviewResponseDTO) for r in items]
 
@@ -356,10 +340,10 @@ class GameReviewService:
         offset = (page - 1) * page_size
         items = await self.repo.get_by_user_id(
             user_id, offset=offset, limit=page_size,
-            statuses=statuses, include_deleted=include_deleted
+            statuses=statuses, include_deleted=include_deleted,
         )
         total = await self.repo.count_by_user_id(
-            user_id, statuses=statuses, include_deleted=include_deleted
+            user_id, statuses=statuses, include_deleted=include_deleted,
         )
         return PaginatedResponseDTO(
             items=[Mapper.entity_to_dto(r, GameReviewResponseDTO) for r in items],
@@ -376,7 +360,7 @@ class GameReviewService:
         if not await self.user_repo.get_by_id(user_id):
             raise NotFoundError()
         items = await self.repo.get_list_by_user_id(
-            user_id, statuses=statuses, include_deleted=include_deleted
+            user_id, statuses=statuses, include_deleted=include_deleted,
         )
         return [Mapper.entity_to_dto(r, GameReviewResponseDTO) for r in items]
 
@@ -388,7 +372,6 @@ class GameReviewService:
         await self.repo.soft_delete(review_id)
 
     async def restore(self, review_id: UUID) -> None:
-        # restore работает с удалёнными — ищем включая deleted
         review = await self.repo.get_by_id(review_id, include_deleted=True)
         if not review:
             raise GameReviewNotFoundException()
@@ -400,16 +383,11 @@ class GameReviewService:
             raise GameReviewNotFoundException()
         await self.repo.delete(review_id)
 
-    # ── bulk: вызывается при INVALID сессии ───────────────────────────────────
+    # ── bulk ──────────────────────────────────────────────────────────────────
 
     async def invalidate_by_session_id(self, session_id: UUID) -> None:
-        """
-        Мягко удаляет все отзывы сессии.
-        Вызывается из GameSessionService.invalidate().
-        """
+        """Мягко удаляет все отзывы сессии. Вызывается из GameSessionService.invalidate()."""
         await self.repo.soft_delete_by_session_id(session_id)
-
-    # ── create bulk: вызывается при COMPLETED сессии ─────────────────────────
 
     async def create_for_session(
         self,
@@ -419,13 +397,7 @@ class GameReviewService:
     ) -> list[GameReviewResponseDTO]:
         """
         Создаёт отзывы для всех присутствовавших игроков при завершении сессии.
-
-        Пропускает:
-        - автора игры
-        - пользователей, у которых уже есть отзыв на эту сессию
-        - пользователей, не являющихся ACCEPTED игроками
-
-        Возвращает список созданных DTO.
+        Пропускает автора игры, дубликаты и не-ACCEPTED игроков.
         """
         game = await self.game_repo.get_by_id(game_id)
         if not game:
@@ -433,20 +405,17 @@ class GameReviewService:
 
         from app.domain.enums.player_status_enum import PlayerStatusEnum
 
-        created: list[GameReviewResponseDTO] = []
+        result: list[GameReviewResponseDTO] = []
         for user_id in attending_user_ids:
-            # Пропускаем автора
             if user_id == game.author_id:
                 continue
 
-            # Пропускаем, если уже есть отзыв
             existing = await self.repo.get_by_session_id_and_user_id(
                 session_id, user_id, include_deleted=False
             )
             if existing:
                 continue
 
-            # Пропускаем, если не принятый игрок
             player = await self.game_repo.get_player(game_id, user_id)
             if not player or player.status != PlayerStatusEnum.ACCEPTED:
                 continue
@@ -456,10 +425,10 @@ class GameReviewService:
                 session_id=session_id,
                 user_id=user_id,
             )
-            created_review = await self.repo.create(review)
-            created.append(Mapper.entity_to_dto(created_review, GameReviewResponseDTO))
+            created = await self.repo.create(review)
+            result.append(Mapper.entity_to_dto(created, GameReviewResponseDTO))
 
-        return created
+        return result
 
     # ── статистика ────────────────────────────────────────────────────────────
 
@@ -483,17 +452,13 @@ class GameReviewService:
 
     async def get_stats_rating(self, game_id: UUID) -> GameReviewRatingStatsDTO:
         """
-        Рассчитывает «справедливую» оценку игры.
+        Рассчитывает справедливую оценку игры.
 
         Алгоритм:
-        1. Собираем все SEND рейтинги по игре.
-        2. Считаем число уникальных сессий и уникальных авторов с отзывами.
-        3. Справедливая оценка = среднее взвешенное, где вес каждого отзыва
-           пропорционален охвату (1 / уникальных_авторов_в_сессии).
-           Это снижает влияние сессий, где писал только один игрок, и не
-           завышает оценку игры с малым числом участников.
-        4. Финальный score нормируется в [0, 4] и округляется до ближайшего
-           рейтинг-лейбла.
+        - Берём все SEND рейтинги.
+        - Считаем confidence = total_users / (total_users + 1).
+        - weighted_score = confidence * raw_mean + (1 - confidence) * 2.0 (NEUTRAL).
+        - Нормируем в [0,4], переводим в лейбл.
         """
         if not await self.game_repo.get_by_id(game_id):
             raise GameNotFoundException()
@@ -501,7 +466,6 @@ class GameReviewService:
         ratings = await self.repo.get_ratings_by_game_id(game_id)
         total_sessions = await self.repo.count_distinct_sessions_by_game_id(game_id)
         total_users = await self.repo.count_distinct_users_by_game_id(game_id)
-
         total_reviews = len(ratings)
 
         if total_reviews == 0 or total_users == 0:
@@ -514,20 +478,12 @@ class GameReviewService:
                 label=ReviewRatingEnum.NEUTRAL,
             )
 
-        # Простое среднее + штраф за малое число рецензентов
         raw_scores = [_RATING_WEIGHTS.get(r, 2) for r in ratings]
         raw_mean = sum(raw_scores) / len(raw_scores)
-
-        # Коэффициент доверия: чем больше уникальных авторов, тем ближе к 1
         confidence = total_users / (total_users + 1)
-
-        # Нейтральная оценка = 2.0 (NEUTRAL)
         weighted_score = confidence * raw_mean + (1 - confidence) * 2.0
         weighted_score = round(max(0.0, min(4.0, weighted_score)), 2)
-
-        # Перевод в лейбл
-        label_index = round(weighted_score)
-        label = _RATING_LABELS[label_index]  # type: ignore[misc]
+        label = _RATING_LABELS[round(weighted_score)] #type: ignore[misc]
 
         return GameReviewRatingStatsDTO(
             game_id=game_id,
@@ -539,7 +495,7 @@ class GameReviewService:
         )
 
     async def get_full_stats(self, game_id: UUID) -> GameReviewStatsDTO:
-        """Возвращает полную статистику по игре одним вызовом."""
+        """Полная статистика по игре одним вызовом."""
         return GameReviewStatsDTO(
             game_id=game_id,
             best_npc=await self.get_stats_npc(game_id),
