@@ -405,7 +405,7 @@ class GameSessionCog(commands.Cog):
             gid = await service.find_game_id_by_event_title(event.name)
 
         if gid:
-            await create_session_for_event(self, inter, event, gid)
+            await create_session_for_event(self.bot, inter, event, gid)
             return
 
         async with user_service_ctx() as user_service:
@@ -425,7 +425,7 @@ class GameSessionCog(commands.Cog):
         async def on_game_selected(
                 cb_inter: disnake.MessageInteraction, selected_game_id: str
         ) -> None:
-            await create_session_for_event(self, cb_inter, event, UUID(selected_game_id))
+            await create_session_for_event(self.bot, cb_inter, event, UUID(selected_game_id))
 
         view = SelectView(
             items=games,
