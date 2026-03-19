@@ -1,7 +1,9 @@
 # app/infrastructure/repositories/exception_handlers.py
+# ИЗМЕНЕНИЕ: добавлена обработка uq_game_review_session_user
 from sqlalchemy.exc import IntegrityError
 
 from app.exceptions import CharacterAlreadyExistsException, GameAlreadyExistsException, PlayerAlreadyInGameException
+from app.exceptions.game_review_exceptions import GameReviewAlreadyExistsException
 from app.exceptions.user_exceptions import LoginAlreadyExists, EmailAlreadyExists, DiscordAlreadyLinked
 
 def handle_user_integrity_error(e: IntegrityError) -> None:
@@ -32,5 +34,9 @@ def handle_user_integrity_error(e: IntegrityError) -> None:
     # Game players
     if "game_players" in error_str:
         raise PlayerAlreadyInGameException("Игрок уже является участником этой игры")
+
+    # Game review
+    if "uq_game_review_session_user" in error_str:
+        raise GameReviewAlreadyExistsException("Игрок уже оставил отзыв на эту сессию")
 
     raise e

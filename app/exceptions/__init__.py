@@ -41,6 +41,13 @@ __all__ = [
     "GameNotFoundByEventTitleException",
     "SessionAlreadyLinkedToEventException",
     "EventAlreadyLinkedToSessionException",
+    # Game Review
+    "GameReviewError",
+    "GameReviewNotFoundException",
+    "GameReviewAlreadyExistsException",
+    "GameReviewAlreadySentException",
+    "GameReviewNotAllowedException",
+    "GameReviewInvalidStatusTransitionException",
 ]
 
 
@@ -53,6 +60,14 @@ from app.exceptions.discord_exceptions import EventAlreadyLinkedToSessionExcepti
     DiscordError
 from app.exceptions.game_exceptions import NotGameAuthorException, PlayerNotFoundException, \
     PlayerAlreadyInGameException, GameAlreadyExistsException, GameNotFoundException, GameError
+from app.exceptions.game_review_exceptions import (
+    GameReviewError,
+    GameReviewNotFoundException,
+    GameReviewAlreadyExistsException,
+    GameReviewAlreadySentException,
+    GameReviewNotAllowedException,
+    GameReviewInvalidStatusTransitionException,
+)
 from app.exceptions.game_session_exceptions import GameSessionError, \
     GameSessionInvalidStatusTransitionException, GameSessionAlreadyActiveException, GameSessionNotFoundException
 from app.exceptions.game_system_exceptions import GameSystemAlreadyExistsException, GameSystemNotFoundException, \

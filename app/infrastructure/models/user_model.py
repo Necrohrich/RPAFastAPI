@@ -40,6 +40,10 @@ class UserModel(BaseModel):
     games: Mapped[list["GameModel"]] = relationship(back_populates='author') # type: ignore[import]
     characters: Mapped[list["CharacterModel"]] = relationship(back_populates='author') # type: ignore[import]
     participated_games: Mapped[list["GamePlayerModel"]] = relationship(back_populates="user") # type: ignore[import]
+    game_reviews: Mapped[list["GameReviewModel"]] = relationship(  # type: ignore[import]
+        foreign_keys="[GameReviewModel.user_id]",
+        back_populates="user",
+    )
 
     __table_args__ = (
         Index(
