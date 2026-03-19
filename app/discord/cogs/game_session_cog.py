@@ -341,8 +341,8 @@ class GameSessionCog(commands.Cog):
     async def _handle_event_end(self, event: disnake.GuildScheduledEvent, service, session) -> None:
         logger.info("[event_end] id=%s title=%r guild=%s", event.id, event.name, event.guild_id)
 
-        if session.status == GameSessionStatusEnum.INVALID:
-            logger.info("[event_end] Session %s is INVALID — skipping", session.id)
+        if session.status in (GameSessionStatusEnum.INVALID, GameSessionStatusEnum.CANCELED):
+            logger.info("[event_end] Session %s is %s — skipping", session.id, session.status)
             return
 
         discord_state = await service.get_discord_state(session.id)
@@ -484,7 +484,7 @@ class GameSessionCog(commands.Cog):
                 try:
                     discord_event = await inter.guild.fetch_scheduled_event(session.discord_event_id)
                     await discord_event.cancel()
-                except disnake.NotFound:
+                except (disnake.NotFound, ValueError):
                     pass
                 except disnake.HTTPException as e:
                     logger.warning("[session_cancel] Failed to cancel discord event: %s", e)
