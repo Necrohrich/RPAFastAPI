@@ -114,12 +114,6 @@ class GameSessionService:
         attending_user_ids: Optional[list[int]] = None,
         attendance_message_id=None
     ) -> GameSessionResponseDTO:
-        """Переводит сессию в ACTIVE и создаёт Discord-состояние.
-
-        attending_user_ids:
-            - Discord: передаётся после завершения View выбора игроков
-            - Сайт: передаётся из принятых игроков игры (PlayerStatusEnum.ACCEPTED)
-        """
         session = await self._get_or_raise(session_id)
         self._check_transition(session.status, GameSessionStatusEnum.ACTIVE)
 
@@ -144,23 +138,25 @@ class GameSessionService:
         await self.repo.delete_discord_state(session_id)
         return Mapper.entity_to_dto(updated, GameSessionResponseDTO)
 
-    async def cancel(self, session_id: UUID) -> GameSessionResponseDTO:
-        """Переводит сессию в CANCELED и удаляет Discord-состояние."""
+    async def cancel(self, session_id: UUID) -> tuple[GameSessionResponseDTO, Optional[dict]]:
+        """Переводит сессию в CANCELED, возвращает DTO и discord_state до его удаления."""
         session = await self._get_or_raise(session_id)
         self._check_transition(session.status, GameSessionStatusEnum.CANCELED)
 
+        discord_state = await self.repo.get_discord_state(session_id)
         updated = await self.repo.update_status(session_id, GameSessionStatusEnum.CANCELED)
         await self.repo.delete_discord_state(session_id)
-        return Mapper.entity_to_dto(updated, GameSessionResponseDTO)
+        return Mapper.entity_to_dto(updated, GameSessionResponseDTO), discord_state
 
-    async def invalidate(self, session_id: UUID) -> GameSessionResponseDTO:
-        """Переводит сессию в INVALID. Доступно MODERATOR+."""
+    async def invalidate(self, session_id: UUID) -> tuple[GameSessionResponseDTO, Optional[dict]]:
+        """Переводит сессию в INVALID, возвращает DTO и discord_state до его удаления."""
         session = await self._get_or_raise(session_id)
         self._check_transition(session.status, GameSessionStatusEnum.INVALID)
 
+        discord_state = await self.repo.get_discord_state(session_id)
         updated = await self.repo.update_status(session_id, GameSessionStatusEnum.INVALID)
         await self.repo.delete_discord_state(session_id)
-        return Mapper.entity_to_dto(updated, GameSessionResponseDTO)
+        return Mapper.entity_to_dto(updated, GameSessionResponseDTO), discord_state
 
     async def link_discord_event(
         self, session_id: UUID, discord_event_id: int,
@@ -210,10 +206,7 @@ class GameSessionService:
         from_number: Optional[int] = None,
         to_number: Optional[int] = None,
     ) -> PaginatedResponseDTO[GameSessionResponseDTO]:
-        """Завершённые сессии с опциональной фильтрацией по диапазону номеров.
-
-        from_number / to_number используются командой публикации сессий в Discord.
-        """
+        """Завершённые сессии с опциональной фильтрацией по диапазону номеров."""
         if not await self.game_repo.get_by_id(game_id):
             raise GameNotFoundException()
 
@@ -240,6 +233,13 @@ class GameSessionService:
             raise GameSessionNotFoundException()
         return Mapper.entity_to_dto(session, GameSessionResponseDTO)
 
+    async def find_active_by_game_id(self, game_id: UUID) -> Optional[GameSessionResponseDTO]:
+        """Возвращает активную сессию или None. Для случаев, где отсутствие сессии — норма."""
+        session = await self.repo.get_active_by_game_id(game_id)
+        if not session:
+            return None
+        return Mapper.entity_to_dto(session, GameSessionResponseDTO)
+
     async def get_by_discord_event_id(self, discord_event_id: int) -> GameSessionResponseDTO:
         session = await self.repo.get_by_discord_event_id(discord_event_id)
         if not session:
@@ -247,10 +247,7 @@ class GameSessionService:
         return Mapper.entity_to_dto(session, GameSessionResponseDTO)
 
     async def get_created_list_by_author_discord_id(self, discord_id: int) -> list[GameSessionResponseDTO]:
-        """
-        CREATED-сессии игр пользователя (по gm_id/discord_id).
-        Используется в /session link.
-        """
+        """CREATED-сессии игр пользователя. Используется в /session link."""
         games = await self.game_repo.get_list_by_author_discord_id(discord_id)
         result: list[GameSessionResponseDTO] = []
         for game in games:
@@ -262,10 +259,7 @@ class GameSessionService:
         return result
 
     async def get_active_or_created_list_by_author_discord_id(self, discord_id: int) -> list[GameSessionResponseDTO]:
-        """
-        ACTIVE + CREATED сессии игр пользователя (по gm_id/discord_id).
-        Используется в /session cancel (автор игры).
-        """
+        """ACTIVE + CREATED сессии игр пользователя. Используется в /session cancel."""
         games = await self.game_repo.get_list_by_author_discord_id(discord_id)
         result: list[GameSessionResponseDTO] = []
         for game in games:
@@ -276,11 +270,15 @@ class GameSessionService:
             result.extend(Mapper.entity_to_dto(s, GameSessionResponseDTO) for s in sessions)
         return result
 
+    async def get_last_valid_by_game_id(self, game_id: UUID) -> Optional[GameSessionResponseDTO]:
+        """Последняя действительная сессия игры (не CANCELED/INVALID). Для /session info."""
+        session = await self.repo.get_last_valid_by_game_id(game_id)
+        if not session:
+            return None
+        return Mapper.entity_to_dto(session, GameSessionResponseDTO)
+
     async def get_non_invalid_list(self) -> list[GameSessionResponseDTO]:
-        """
-        Все сессии кроме INVALID.
-        Используется в /session invalidate (MODERATOR+).
-        """
+        """Все сессии кроме INVALID. Используется в /session invalidate (MODERATOR+)."""
         sessions = await self.repo.get_by_statuses(
             statuses=[
                 GameSessionStatusEnum.CREATED,

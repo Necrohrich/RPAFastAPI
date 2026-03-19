@@ -8,14 +8,17 @@ from disnake.ext import commands
 
 from app.discord.dependencies import (
     game_session_service_ctx,
-    guild_settings_service_ctx, auth_service_ctx, user_service_ctx, game_service_ctx,
+    guild_settings_service_ctx,
+    user_service_ctx,
+    game_service_ctx,
 )
 from app.discord.embeds.build_session_publish_embed import build_session_publish_embed
 from app.discord.policies import require_role
 from app.discord.utils.event_utils import (
     get_event_image_url,
     notify_game_channel,
-    delete_message_safe, create_session_for_event,
+    delete_message_safe,
+    create_session_for_event,
 )
 from app.discord.utils.session_roles import assign_session_roles, restore_after_session
 from app.discord.views import AttendanceView, SelectView
@@ -38,18 +41,13 @@ async def _get_role_anchor(guild_id: int) -> int | None:
 
 
 async def _delete_discord_event_safe(guild: disnake.Guild, discord_event_id: int) -> None:
-    """
-    Удаляет Discord Scheduled Event после коммита транзакции БД.
-    Вызывается СНАРУЖИ async with service — чтобы on_guild_scheduled_event_delete
-    увидел уже закоммиченный статус INVALID и пропустил сессию.
-    """
     try:
         discord_event = await guild.fetch_scheduled_event(discord_event_id)
         await discord_event.delete()
         logger.info("[event_start] Duplicate discord event %s deleted", discord_event_id)
     except disnake.NotFound:
         pass
-    except (disnake.HTTPException, OSError) as e:  # ← добавить OSError
+    except (disnake.HTTPException, OSError) as e:
         logger.warning("[event_start] Failed to delete duplicate discord event: %s", e)
 
 
@@ -106,7 +104,6 @@ class GameSessionCog(commands.Cog):
     ) -> None:
         logger.info("[event_update] id=%s status=%s→%s", after.id, before.status, after.status)
 
-        # discord_event_id дубля для удаления ПОСЛЕ коммита транзакции
         duplicate_event_id: int | None = None
 
         async with game_session_service_ctx() as service:
@@ -114,22 +111,18 @@ class GameSessionCog(commands.Cog):
             if not session:
                 return
 
-            # ── Старт ────────────────────────────────────────────────────────
             if (
                 after.status == disnake.GuildScheduledEventStatus.active
                 and before.status != disnake.GuildScheduledEventStatus.active
             ):
                 duplicate_event_id = await self._handle_event_start(after, service, session)
-                # выходим из async with → транзакция коммитится
 
-            # ── Завершение ───────────────────────────────────────────────────
             elif (
                 after.status == disnake.GuildScheduledEventStatus.completed
                 and before.status != disnake.GuildScheduledEventStatus.completed
             ):
                 await self._handle_event_end(after, service, session)
 
-            # ── Обновление полей ─────────────────────────────────────────────
             else:
                 changed: dict = {}
                 if after.name != (session.title or ""):
@@ -144,8 +137,6 @@ class GameSessionCog(commands.Cog):
                     await service.update(session.id, UpdateGameSessionDTO(**changed))
                     logger.info("[event_update] Session %s updated: %s", session.id, list(changed.keys()))
 
-        # ── Транзакция закоммичена — теперь безопасно удалять событие ────────
-        # on_guild_scheduled_event_delete увидит статус INVALID и пропустит сессию
         if duplicate_event_id:
             await _delete_discord_event_safe(after.guild, duplicate_event_id)
 
@@ -166,10 +157,8 @@ class GameSessionCog(commands.Cog):
                 logger.info("[event_delete] Session %s already %s — skipping", session.id, session.status)
                 return
 
-            discord_state = await service.repo.get_discord_state(session.id)
             game = await service.game_repo.get_by_id(session.game_id)
-
-            await service.cancel(session.id)
+            session_dto, discord_state = await service.cancel(session.id)
             logger.info("[event_delete] Session %s canceled", session.id)
 
             if discord_state and event.guild:
@@ -187,7 +176,7 @@ class GameSessionCog(commands.Cog):
                     self.bot,
                     channel_id=game.discord_main_channel_id,
                     role_id=game.discord_role_id,
-                    text=f"❌ Сессия #{session.session_number} отменена",
+                    text=f"❌ Сессия #{session_dto.session_number} отменена",
                     color=disnake.Color.red(),
                 )
 
@@ -196,11 +185,6 @@ class GameSessionCog(commands.Cog):
     async def _handle_event_start(
         self, event: disnake.GuildScheduledEvent, service, session
     ) -> int | None:
-        """
-        Возвращает discord_event_id дублирующего события если сессия была инвалидирована,
-        чтобы вызывающий код удалил событие ПОСЛЕ коммита транзакции.
-        Возвращает None в штатных случаях.
-        """
         logger.info("[event_start] id=%s title=%r guild=%s", event.id, event.name, event.guild_id)
 
         game = await service.game_repo.get_by_id(session.game_id)
@@ -225,7 +209,6 @@ class GameSessionCog(commands.Cog):
                 )
             return None
 
-        # ── helper: инвалидация при конфликте ────────────────────────────────
         async def _invalidate_duplicate(active_svc, duplicate_session, active_game) -> None:
             logger.warning(
                 "[event_start] Session %s cannot start — active session exists for game %s",
@@ -316,10 +299,8 @@ class GameSessionCog(commands.Cog):
 
         logger.info("[event_start] AttendanceView sent, session=%s msg=%s", session.id, msg.id)
 
-        # view.wait() — ВНЕ контекста service (вызывается из update, service уже закрыт)
         await view.wait()
 
-        # Вложенный контекст — свой коммит при выходе
         dup_event_id: int | None = None
 
         async with game_session_service_ctx() as svc:
@@ -334,8 +315,6 @@ class GameSessionCog(commands.Cog):
             except GameSessionAlreadyActiveException:
                 dup_event_id = session.discord_event_id
                 await _invalidate_duplicate(svc, session, game)
-                # выходим из async with svc → транзакция коммитится
-
             else:
                 logger.info("[event_start] Session %s started, attending=%d", session.id, len(attending_ids))
                 game = await svc.game_repo.get_by_id(session.game_id)
@@ -351,7 +330,6 @@ class GameSessionCog(commands.Cog):
                         color=disnake.Color.green(),
                     )
 
-        # svc закрыт → транзакция закоммичена → теперь безопасно удалять событие
         if dup_event_id:
             return dup_event_id
 
@@ -362,7 +340,6 @@ class GameSessionCog(commands.Cog):
     async def _handle_event_end(self, event: disnake.GuildScheduledEvent, service, session) -> None:
         logger.info("[event_end] id=%s title=%r guild=%s", event.id, event.name, event.guild_id)
 
-        # ── Сессия INVALID (дубль при старте) — пропускаем ──────────────────
         if session.status == GameSessionStatusEnum.INVALID:
             logger.info("[event_end] Session %s is INVALID — skipping", session.id)
             return
@@ -424,20 +401,17 @@ class GameSessionCog(commands.Cog):
                 )
                 return
 
-            # Пробуем найти игру автоматически по названию события
             gid = await service.repo.find_game_id_by_event_title(event.name)
 
-        # Если нашли — сразу создаём без SelectView
         if gid:
             await create_session_for_event(self, inter, event, gid)
             return
 
-        # Иначе — предлагаем выбрать игру из списка
         async with user_service_ctx() as user_service:
             user = await user_service.get_user_by_discord(discord_user.id)
 
-        async with game_service_ctx() as service:
-            games = await service.get_list_by_author_id(user.id)
+        async with game_service_ctx() as gs:
+            games = await gs.get_list_by_author_id(user.id)
 
         if not games:
             await inter.followup.send(
@@ -492,11 +466,9 @@ class GameSessionCog(commands.Cog):
                 cb_inter: disnake.MessageInteraction, selected_id: UUID
         ) -> None:
             async with game_session_service_ctx() as svc:
-                discord_state = await svc.repo.get_discord_state(selected_id)
-                session = await svc.cancel(selected_id)
+                session, discord_state = await svc.cancel(selected_id)
                 game = await svc.game_repo.get_by_id(session.game_id)
 
-            # Восстанавливаем ники и удаляем роль если сессия была ACTIVE
             if discord_state and inter.guild:
                 await restore_after_session(inter.guild, discord_state)
 
@@ -560,8 +532,7 @@ class GameSessionCog(commands.Cog):
                 cb_inter: disnake.MessageInteraction, selected_id: UUID
         ) -> None:
             async with game_session_service_ctx() as svc:
-                discord_state = await svc.repo.get_discord_state(selected_id)
-                session = await svc.invalidate(selected_id)
+                session, discord_state = await svc.invalidate(selected_id)
                 game = await svc.game_repo.get_by_id(session.game_id)
 
             if discord_state and inter.guild:
@@ -618,8 +589,11 @@ class GameSessionCog(commands.Cog):
     ) -> None:
         await inter.response.defer(ephemeral=True)
 
-        async with game_session_service_ctx() as service:
-            games = await service.game_repo.get_list_by_author_discord_id(inter.author.id)
+        async with user_service_ctx() as user_service:
+            user = await user_service.get_user_by_discord(inter.author.id)
+
+        async with game_service_ctx() as gs:
+            games = await gs.get_list_by_author_id(user.id)
 
         if not games:
             await inter.followup.send("❌ У вас нет игр.", ephemeral=True)
@@ -674,6 +648,8 @@ class GameSessionCog(commands.Cog):
         )
         await inter.followup.send("Выберите игру:", view=view, ephemeral=True)
 
+    # ── /session info ─────────────────────────────────────────────────────────
+
     @session.sub_command(name="info", description="Статистика сессий игры [SUPPORT+]")
     @require_role(PlatformPolicies.require_support)
     async def session_info(
@@ -682,8 +658,11 @@ class GameSessionCog(commands.Cog):
     ) -> None:
         await inter.response.defer(ephemeral=True)
 
-        async with game_session_service_ctx() as service:
-            games = await service.game_repo.get_list_by_author_discord_id(inter.author.id)
+        async with user_service_ctx() as user_service:
+            user = await user_service.get_user_by_discord(inter.author.id)
+
+        async with game_service_ctx() as gs:
+            games = await gs.get_list_by_author_id(user.id)
 
         if not games:
             await inter.followup.send("❌ У вас нет игр.", ephemeral=True)
@@ -696,17 +675,17 @@ class GameSessionCog(commands.Cog):
 
             async with game_session_service_ctx() as gsc:
                 game = await gsc.game_repo.get_by_id(gid)
-                total_all = await gsc.repo.count_by_game_id(gid)
-                completed = await gsc.repo.count_completed_by_game_id(gid)
-                last_valid = await gsc.repo.get_last_valid_by_game_id(gid)
-                active = await gsc.repo.get_active_by_game_id(gid)
+                total_all = await gsc.get_by_game_id(gid, page=1, page_size=1)
+                completed = await gsc.get_completed_by_game_id(gid, page=1, page_size=1)
+                active = await gsc.find_active_by_game_id(gid)
+                last_valid = await gsc.get_last_valid_by_game_id(gid)
 
             embed = disnake.Embed(
                 title=f"📊 Статистика сессий — {game.name}",
                 color=disnake.Color.blurple(),
             )
-            embed.add_field(name="Всего сессий", value=str(total_all), inline=True)
-            embed.add_field(name="Завершённых", value=str(completed), inline=True)
+            embed.add_field(name="Всего сессий", value=str(total_all.total), inline=True)
+            embed.add_field(name="Завершённых", value=str(completed.total), inline=True)
             embed.add_field(
                 name="Активная",
                 value=f"#{active.session_number} «{active.title}»" if active else "нет",
@@ -717,7 +696,7 @@ class GameSessionCog(commands.Cog):
                 value=f"#{last_valid.session_number} «{last_valid.title}»" if last_valid else "нет",
                 inline=False,
             )
-            if completed > 0:
+            if completed.total > 0:
                 embed.set_footer(
                     text=f"Для публикации: /session publish "
                          f"[from_session:1 to_session:{last_valid.session_number if last_valid else '?'}]"
