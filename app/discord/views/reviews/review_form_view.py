@@ -3,8 +3,16 @@
 View для заполнения игрового отзыва (эфемеральное сообщение).
 
 Открывается из ReviewInviteView при нажатии «Оставить отзыв».
-Содержит все кнопки редактирования: оценка, комментарий, сцены, НИП,
-лучший игрок, обновить, отменить, отправить.
+
+Таймаут управляется ReviewInviteView (60 минут), эта вьюшка — без таймаута.
+
+Важно про редактирование:
+- Кнопки формы (оценка, отмена, отправка) вызывают inter.edit_original_response
+  и обновляют embed напрямую — всё в одном взаимодействии.
+- Кнопки, открывающие модалки (комментарий, сцены, НИП), не могут редактировать
+  оригинальное сообщение после submit модалки: токен взаимодействия эфемерального
+  сообщения и токен модалки — разные. Поэтому модалки шлют followup-подтверждение,
+  а кнопка выбора игрока обновляет embed через свой inter.
 """
 from __future__ import annotations
 
@@ -27,27 +35,17 @@ from app.dto.game_review_dtos import UpdateGameReviewDTO, SendGameReviewDTO
 
 logger = logging.getLogger(__name__)
 
-# Таймаут формы: 30 минут
-_FORM_TIMEOUT = 30 * 60
-
-_RATING_EMOJI: dict[ReviewRatingEnum, str] = {
-    ReviewRatingEnum.TERRIBLE:  "😡",
-    ReviewRatingEnum.BAD:       "😕",
-    ReviewRatingEnum.NEUTRAL:   "😐",
-    ReviewRatingEnum.GOOD:      "🙂",
-    ReviewRatingEnum.EXCELLENT: "🤩",
-}
-
 
 class ReviewFormView(BaseView):
     """
     Основная эфемеральная вьюшка заполнения отзыва.
 
+    Без таймаута — таймаут управляется ReviewInviteView.
+
     Параметры:
-        review_id      — UUID отзыва в БД
-        user_id        — UUID пользователя
-        attending_players  — список (UUID, login) присутствовавших игроков (для выбора лучшего),
-                           собирается в ReviewInviteView за один проход
+        review_id          — UUID отзыва в БД
+        user_id            — UUID пользователя
+        attending_players  — список (UUID, login) присутствовавших игроков
     """
 
     def __init__(
@@ -56,63 +54,64 @@ class ReviewFormView(BaseView):
         user_id: UUID,
         attending_players: list[tuple[UUID, str]] | None = None,
     ) -> None:
-        super().__init__(timeout=_FORM_TIMEOUT)
+        super().__init__(timeout=None)
         self._review_id = review_id
         self._user_id = user_id
-        # list of (user_id, login) — готовые данные из ReviewInviteView
         self._attending_players: list[tuple[UUID, str]] = attending_players or []
 
     # ── helpers ───────────────────────────────────────────────────────────────
 
-    async def _refresh(self, inter: disnake.MessageInteraction) -> None:
-        """Перерисовывает embed с актуальным состоянием отзыва."""
+    async def _get_review_embed(self, attending_players: list[tuple[UUID, str]]):
+        """Возвращает актуальный embed отзыва."""
         async with game_review_service_ctx() as svc:
             review = await svc.get_by_id(self._review_id)
-        await inter.edit_original_response(
-            embed=build_review_form_embed(review), view=self
-        )
+        return build_review_form_embed(review, attending_players=attending_players), review
 
-    async def _update_field(
-        self, inter: disnake.MessageInteraction, dto: UpdateGameReviewDTO
+    async def _update_field_and_edit(
+        self,
+        inter: disnake.MessageInteraction,
+        dto: UpdateGameReviewDTO,
     ) -> None:
-        """Сохраняет обновление и перерисовывает embed."""
+        """
+        Сохраняет обновление и редактирует оригинальное эфемеральное сообщение.
+        Работает только когда inter — кнопка формы (не модалка).
+        """
         async with game_review_service_ctx() as svc:
             await svc.update(self._review_id, dto, self._user_id)
-        async with game_review_service_ctx() as svc:
-            review = await svc.get_by_id(self._review_id)
+        embed, _ = await self._get_review_embed(self._attending_players)
         try:
-            await inter.edit_original_response(embed=build_review_form_embed(review), view=self)
-        except disnake.HTTPException:
-            pass
+            await inter.edit_original_response(embed=embed, view=self)
+        except disnake.HTTPException as e:
+            logger.warning("[ReviewFormView] edit_original_response failed: %s", e)
 
-    # ── Рейтинг ───────────────────────────────────────────────────────────────
+    # ── Рейтинг (кнопки — редактируют embed напрямую) ─────────────────────────
 
     @button(emoji="😡", style=disnake.ButtonStyle.secondary, custom_id="review_form:terrible", row=0)
     async def btn_terrible(self, _: Button, inter: disnake.MessageInteraction) -> None:
         await inter.response.defer(ephemeral=True)
-        await self._update_field(inter, UpdateGameReviewDTO(rating=ReviewRatingEnum.TERRIBLE))
+        await self._update_field_and_edit(inter, UpdateGameReviewDTO(rating=ReviewRatingEnum.TERRIBLE))
 
     @button(emoji="😕", style=disnake.ButtonStyle.secondary, custom_id="review_form:bad", row=0)
     async def btn_bad(self, _: Button, inter: disnake.MessageInteraction) -> None:
         await inter.response.defer(ephemeral=True)
-        await self._update_field(inter, UpdateGameReviewDTO(rating=ReviewRatingEnum.BAD))
+        await self._update_field_and_edit(inter, UpdateGameReviewDTO(rating=ReviewRatingEnum.BAD))
 
     @button(emoji="😐", style=disnake.ButtonStyle.secondary, custom_id="review_form:neutral", row=0)
     async def btn_neutral(self, _: Button, inter: disnake.MessageInteraction) -> None:
         await inter.response.defer(ephemeral=True)
-        await self._update_field(inter, UpdateGameReviewDTO(rating=ReviewRatingEnum.NEUTRAL))
+        await self._update_field_and_edit(inter, UpdateGameReviewDTO(rating=ReviewRatingEnum.NEUTRAL))
 
     @button(emoji="🙂", style=disnake.ButtonStyle.secondary, custom_id="review_form:good", row=0)
     async def btn_good(self, _: Button, inter: disnake.MessageInteraction) -> None:
         await inter.response.defer(ephemeral=True)
-        await self._update_field(inter, UpdateGameReviewDTO(rating=ReviewRatingEnum.GOOD))
+        await self._update_field_and_edit(inter, UpdateGameReviewDTO(rating=ReviewRatingEnum.GOOD))
 
     @button(emoji="🤩", style=disnake.ButtonStyle.secondary, custom_id="review_form:excellent", row=0)
     async def btn_excellent(self, _: Button, inter: disnake.MessageInteraction) -> None:
         await inter.response.defer(ephemeral=True)
-        await self._update_field(inter, UpdateGameReviewDTO(rating=ReviewRatingEnum.EXCELLENT))
+        await self._update_field_and_edit(inter, UpdateGameReviewDTO(rating=ReviewRatingEnum.EXCELLENT))
 
-    # ── Комментарий ───────────────────────────────────────────────────────────
+    # ── Комментарий (модалка — followup, не может редактировать оригинал) ────
 
     @button(label="💬 Комментарий", style=disnake.ButtonStyle.primary, custom_id="review_form:comment", row=1)
     async def btn_comment(self, _: Button, inter: disnake.MessageInteraction) -> None:
@@ -120,8 +119,13 @@ class ReviewFormView(BaseView):
             review = await svc.get_by_id(self._review_id)
 
         async def on_comment(cb_inter: disnake.ModalInteraction, text: str) -> None:
-            await self._update_field(cb_inter, UpdateGameReviewDTO(comment=text))
-            await cb_inter.followup.send("✅ Комментарий сохранён.", ephemeral=True)
+            async with game_review_service_ctx() as grs:
+                await grs.update(self._review_id, UpdateGameReviewDTO(comment=text), self._user_id)
+            await cb_inter.followup.send(
+                "✅ Комментарий сохранён. Нажмите любую кнопку оценки или «Отправить», "
+                "чтобы увидеть обновлённый отзыв.",
+                ephemeral=True,
+            )
 
         modal = ReviewCommentModal(
             current_comment=review.comment or "",
@@ -129,14 +133,20 @@ class ReviewFormView(BaseView):
         )
         await inter.response.send_modal(modal)
 
-    # ── Сцены ─────────────────────────────────────────────────────────────────
+    # ── Сцены (модалка → select → followup) ──────────────────────────────────
 
     @button(label="🎬 Лучшие сцены", style=disnake.ButtonStyle.primary, custom_id="review_form:scenes", row=1)
     async def btn_scenes(self, _: Button, inter: disnake.MessageInteraction) -> None:
-        """Шаг 1: пользователь вводит название сцены в модалке."""
+        """
+        Шаг 1: пользователь вводит название сцены в модалке.
+        ReviewSceneModal.callback делает defer самостоятельно перед вызовом _cb.
+        """
 
         async def on_scene_name(modal_inter: disnake.ModalInteraction, scene_name: str) -> None:
-            """Шаг 2: выбираем тип сцены через select view."""
+            """
+            Шаг 2: показываем select для выбора типа сцены.
+            modal_inter уже имеет выполненный defer — используем только followup.
+            """
             async def on_scene_type(
                 type_inter: disnake.MessageInteraction,
                 _scene_name: str,
@@ -146,10 +156,12 @@ class ReviewFormView(BaseView):
                     review = await svc.get_by_id(self._review_id)
                 current_scenes: dict = dict(review.best_scenes or {})
                 current_scenes[_scene_name] = scene_type
-                await self._update_field(
-                    type_inter,
-                    UpdateGameReviewDTO(best_scenes=current_scenes),
-                )
+                async with game_review_service_ctx() as svc:
+                    await svc.update(
+                        self._review_id,
+                        UpdateGameReviewDTO(best_scenes=current_scenes),
+                        self._user_id,
+                    )
                 await type_inter.followup.send(
                     f"✅ Сцена «{_scene_name}» добавлена.", ephemeral=True
                 )
@@ -165,7 +177,7 @@ class ReviewFormView(BaseView):
         modal = ReviewSceneModal(callback=on_scene_name)
         await inter.response.send_modal(modal)
 
-    # ── НИП ───────────────────────────────────────────────────────────────────
+    # ── НИП (модалка — followup) ──────────────────────────────────────────────
 
     @button(label="🧙 НИП", style=disnake.ButtonStyle.primary, custom_id="review_form:npc", row=1)
     async def btn_npc(self, _: Button, inter: disnake.MessageInteraction) -> None:
@@ -173,7 +185,8 @@ class ReviewFormView(BaseView):
             review = await svc.get_by_id(self._review_id)
 
         async def on_npc(cb_inter: disnake.ModalInteraction, names: list[str]) -> None:
-            await self._update_field(cb_inter, UpdateGameReviewDTO(best_npc=names))
+            async with game_review_service_ctx() as grs:
+                await grs.update(self._review_id, UpdateGameReviewDTO(best_npc=names), self._user_id)
             await cb_inter.followup.send("✅ НИП сохранены.", ephemeral=True)
 
         modal = ReviewNpcModal(
@@ -182,7 +195,7 @@ class ReviewFormView(BaseView):
         )
         await inter.response.send_modal(modal)
 
-    # ── Лучший игрок ──────────────────────────────────────────────────────────
+    # ── Лучший игрок (кнопка → SelectView → followup + редактируем embed) ─────
 
     @button(label="🏆 Игрок сессии", style=disnake.ButtonStyle.primary, custom_id="review_form:best_player", row=2)
     async def btn_best_player(self, _: Button, inter: disnake.MessageInteraction) -> None:
@@ -194,15 +207,12 @@ class ReviewFormView(BaseView):
             )
             return
 
-        from app.discord.views.select_view import SelectView
-
         class _PlayerItem:
             def __init__(self, uid: UUID, display: str):
                 self.id = uid
                 self.name = display
 
-        # Данные уже готовы — (uuid, login) собраны в ReviewInviteView.
-        # Фильтруем только себя: голосовать за себя нельзя.
+        # Фильтруем себя — голосовать за себя нельзя
         items = [
             _PlayerItem(uid, login)
             for uid, login in self._attending_players
@@ -215,12 +225,25 @@ class ReviewFormView(BaseView):
             )
             return
 
-        async def on_player_selected(cb_inter: disnake.MessageInteraction, player_id: str) -> None:
-            await self._update_field(
-                cb_inter,
-                UpdateGameReviewDTO(best_player_id=UUID(player_id)),
+        from app.discord.views.select_view import SelectView
+
+        async def on_player_selected(
+            cb_inter: disnake.MessageInteraction, player_id: str
+        ) -> None:
+            # Находим логин выбранного игрока для подтверждения
+            selected_login = next(
+                (login for uid, login in self._attending_players if str(uid) == player_id),
+                player_id,
             )
-            await cb_inter.followup.send("✅ Лучший игрок выбран.", ephemeral=True)
+            async with game_review_service_ctx() as svc:
+                await svc.update(
+                    self._review_id,
+                    UpdateGameReviewDTO(best_player_id=UUID(player_id)),
+                    self._user_id,
+                )
+            await cb_inter.followup.send(
+                f"✅ Лучший игрок сессии: **{selected_login}**.", ephemeral=True
+            )
 
         view = SelectView(
             items=items,
@@ -230,13 +253,6 @@ class ReviewFormView(BaseView):
             skippable=True,
         )
         await inter.followup.send("Выберите лучшего игрока:", view=view, ephemeral=True)
-
-    # ── Обновить ──────────────────────────────────────────────────────────────
-
-    @button(label="🔄 Обновить", style=disnake.ButtonStyle.secondary, custom_id="review_form:refresh", row=2)
-    async def btn_refresh(self, _: Button, inter: disnake.MessageInteraction) -> None:
-        await inter.response.defer(ephemeral=True)
-        await self._refresh(inter)
 
     # ── Отменить ──────────────────────────────────────────────────────────────
 
@@ -278,7 +294,6 @@ class ReviewFormView(BaseView):
         async with game_review_service_ctx() as svc:
             review = await svc.get_by_id(self._review_id)
 
-        # Проверяем обязательные поля до вызова сервиса
         missing: list[str] = []
         if not review.rating:
             missing.append("оценку (😡/😕/😐/🙂/🤩)")
@@ -308,16 +323,3 @@ class ReviewFormView(BaseView):
             ),
             view=None,
         )
-
-    # ── Таймаут ───────────────────────────────────────────────────────────────
-
-    async def on_timeout(self) -> None:
-        """При таймауте — отменяем отзыв если он ещё не отправлен."""
-        logger.info("[ReviewFormView] Timeout for review %s", self._review_id)
-        try:
-            async with game_review_service_ctx() as svc:
-                review = await svc.get_by_id(self._review_id)
-                if review.status.value == "created":
-                    await svc.cancel(self._review_id, self._user_id)
-        except Exception as e:
-            logger.warning("[ReviewFormView] Could not auto-cancel review %s: %s", self._review_id, e)

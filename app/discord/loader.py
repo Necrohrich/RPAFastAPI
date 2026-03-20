@@ -1,7 +1,8 @@
 #app/discord/loader.py
 import logging
 
-from app.discord.cogs import AuthCog, UserCog, CharacterCog, GameCog, RoleplayCog, GameSessionCog, GuildSettingsCog
+from app.discord.cogs import AuthCog, UserCog, CharacterCog, GameCog, RoleplayCog, GameSessionCog, GuildSettingsCog, \
+    GameReviewCog
 from app.discord.views import AuthView, ProfileView, CharacterView, GameMenuView, GameInvitationView, ReviewInviteView
 
 logger = logging.getLogger(__name__)
@@ -14,6 +15,7 @@ def load_cogs(bot):
     bot.add_cog(RoleplayCog(bot))
     bot.add_cog(GameSessionCog(bot))
     bot.add_cog(GuildSettingsCog(bot))
+    bot.add_cog(GameReviewCog(bot))
 
 def register_views(bot):
     logger.debug("Persistent views registered")

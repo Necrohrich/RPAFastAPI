@@ -1,14 +1,15 @@
 # app/discord/embeds/reviews/build_review_form_embed.py
 import disnake
+from uuid import UUID
 
 from app.domain.enums.review_rating_enum import ReviewRatingEnum
 from app.dto.game_review_dtos import GameReviewResponseDTO
 
 _RATING_LABELS: dict[ReviewRatingEnum, str] = {
-    ReviewRatingEnum.TERRIBLE: "😡 Плохо",
-    ReviewRatingEnum.BAD:      "😕 Есть осадок",
-    ReviewRatingEnum.NEUTRAL:  "😐 Нейтрально",
-    ReviewRatingEnum.GOOD:     "🙂 Хорошо",
+    ReviewRatingEnum.TERRIBLE:  "😡 Плохо",
+    ReviewRatingEnum.BAD:       "😕 Есть осадок",
+    ReviewRatingEnum.NEUTRAL:   "😐 Нейтрально",
+    ReviewRatingEnum.GOOD:      "🙂 Хорошо",
     ReviewRatingEnum.EXCELLENT: "🤩 Превосходно",
 }
 
@@ -19,12 +20,15 @@ def _truncate(text: str, max_len: int = _MAX_DISPLAY_LEN) -> str:
     return text if len(text) <= max_len else text[:max_len - 3] + "..."
 
 
-def build_review_form_embed(review: GameReviewResponseDTO) -> disnake.Embed:
+def build_review_form_embed(
+    review: GameReviewResponseDTO,
+    attending_players: list[tuple[UUID, str]] | None = None,
+) -> disnake.Embed:
     """
     Embed для формы заполнения отзыва.
 
-    Показывает текущее состояние отзыва: оценка, комментарий,
-    лучшие сцены, НИП, лучший игрок (user_id).
+    attending_players — список (user_id, login) присутствовавших игроков.
+    Используется для отображения логина лучшего игрока вместо UUID/mention.
     """
     embed = disnake.Embed(
         title="📋 Ваш отзыв",
@@ -75,10 +79,18 @@ def build_review_form_embed(review: GameReviewResponseDTO) -> disnake.Embed:
     else:
         embed.add_field(name="🧙 Лучшие НИП", value="не выбраны", inline=False)
 
-    # Лучший игрок
-    best_player_text = (
-        f"<@{review.best_player_id}>" if review.best_player_id else "не выбран"
-    )
+    # Лучший игрок — показываем логин из attending_players если доступен
+    best_player_text = "не выбран"
+    if review.best_player_id:
+        # Ищем логин в переданном списке attending_players
+        login: str | None = None
+        if attending_players:
+            login = next(
+                (l for uid, l in attending_players if uid == review.best_player_id),
+                None,
+            )
+        best_player_text = login if login else f"`{review.best_player_id}`"
+
     embed.add_field(name="🏆 Игрок сессии", value=best_player_text, inline=False)
 
     embed.set_footer(text="Обязательно: оценка и комментарий. Остальное — по желанию.")

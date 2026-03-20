@@ -1,8 +1,9 @@
 # app/infrastructure/repositories/game_repositories/game_session_repository.py
+import re
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import select, update, delete, func, literal
+from sqlalchemy import select, update, delete, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.entities import GameSession
@@ -195,15 +196,28 @@ class GameSessionRepository(IGameSessionRepository):
         return (max_number or 0) + 1
 
     async def find_game_id_by_event_title(self, event_title: str) -> Optional[UUID]:
-        needle = event_title.lower()
+        """
+        Ищет игру, название которой встречается в event_title как отдельный токен
+        (case-insensitive). Граница токена: начало/конец строки, пробел или двоеточие.
+        Из нескольких совпадений выбирается самое длинное название (наиболее точное).
+        """
         stmt = (
-            select(GameModel.id)
+            select(GameModel.id, GameModel.name)
             .where(GameModel.deleted_at.is_(None))
-            .where(func.lower(literal(needle)).contains(func.lower(GameModel.name)))
-            .limit(1)
         )
         result = await self.session.execute(stmt)
-        return result.scalar_one_or_none()
+        rows = result.all()
+
+        title_lower = event_title.lower()
+        best: Optional[tuple] = None  # (game_id, name_len)
+
+        for game_id, game_name in rows:
+            pattern = r"(?<![^\s:])" + re.escape(game_name.lower()) + r"(?![^\s:])"
+            if re.search(pattern, title_lower):
+                if best is None or len(game_name) > best[1]:
+                    best = (game_id, len(game_name))
+
+        return best[0] if best else None
 
     # ── Discord-состояние ────────────────────────────────────────────────────
 

@@ -9,10 +9,8 @@ class ReviewSceneModal(BaseModal):
     """
     Модалка для добавления новой сцены к отзыву.
 
-    Пользователь вводит название сцены. Тип сцены выбирается отдельно
-    во view (ReviewSceneTypeView), который вызывает эту модалку.
-
     После подтверждения вызывает callback(inter, scene_name).
+    callback получает ModalInteraction уже с выполненным defer.
     """
 
     def __init__(self, callback=None):
@@ -35,9 +33,10 @@ class ReviewSceneModal(BaseModal):
         )
 
     async def callback(self, inter: disnake.ModalInteraction) -> None:
+        # Defer ПЕРВЫМ — до любой async-работы, иначе токен протухнет за 3 сек.
+        await inter.response.defer(ephemeral=True)
         scene_name = inter.text_values["scene_name_input"].strip()
         if self._cb:
             await self._cb(inter, scene_name)
         else:
-            await inter.response.defer(ephemeral=True)
             await inter.followup.send("✅ Сцена записана.", ephemeral=True)

@@ -363,6 +363,9 @@ class GameSessionCog(commands.Cog):
                 color=disnake.Color.green(),
             )
 
+        updated_session = await service.get_by_id(session.id)
+        self.bot.dispatch("session_completed", updated_session, game)
+
     # ── /session ──────────────────────────────────────────────────────────────
 
     @commands.slash_command(name="session", description="Команды для управления игровыми сессиями")

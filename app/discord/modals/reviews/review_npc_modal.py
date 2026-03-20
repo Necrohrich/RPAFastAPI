@@ -16,19 +16,20 @@ class ReviewNpcModal(BaseModal):
 
     def __init__(self, current_npc: list[str] | None = None, callback=None):
         self._cb = callback
-        current_value = ", ".join(current_npc) if current_npc else ""
-        components = [
-            TextInput(
-                label="Имена НИП через запятую",
-                custom_id="npc_input",
-                style=disnake.TextInputStyle.long,
-                placeholder="Например: Барон фон Кранц, Таверна хозяйка Мarta",
-                min_length=1,
-                max_length=500,
-                required=True,
-                value=current_value,
-            ),
-        ]
+
+        text_input_kwargs = dict(
+            label="Имена НИП через запятую",
+            custom_id="npc_input",
+            style=disnake.TextInputStyle.long,
+            placeholder="Например: Барон фон Кранц, Таверна хозяйка Marta",
+            min_length=1,
+            max_length=500,
+            required=True,
+        )
+        if current_npc:
+            text_input_kwargs["value"] = ", ".join(current_npc)
+
+        components = [TextInput(**text_input_kwargs)]
         super().__init__(
             title="Запомнившиеся НИП",
             custom_id="modal:review_npc",

@@ -59,7 +59,10 @@ async def assign_session_roles(
         anchor_role = guild.get_role(role_position_anchor_id)
         if anchor_role:
             try:
-                await temp_role.edit(position=anchor_role.position + 1)
+                # Ставим временную роль прямо на позицию якоря,
+                # якорь и всё ниже него сдвигается вниз
+                target_position = max(1, anchor_role.position)
+                await temp_role.edit(position=target_position)
             except disnake.HTTPException as exc:
                 logger.warning("[session_roles] Could not set role position: %s", exc)
 

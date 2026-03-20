@@ -15,18 +15,20 @@ class ReviewCommentModal(BaseModal):
 
     def __init__(self, current_comment: str = "", callback=None):
         self._cb = callback
-        components = [
-            TextInput(
-                label="Ваш комментарий",
-                custom_id="comment_input",
-                style=disnake.TextInputStyle.long,
-                placeholder="Напишите ваши впечатления от сессии...",
-                min_length=1,
-                max_length=1800,  # Discord modal limit — 4000, но оставим запас
-                required=True,
-                value=current_comment or "",
-            )
-        ]
+
+        text_input_kwargs = dict(
+            label="Ваш комментарий",
+            custom_id="comment_input",
+            style=disnake.TextInputStyle.long,
+            placeholder="Напишите ваши впечатления от сессии...",
+            min_length=1,
+            max_length=1800,
+            required=True,
+        )
+        if current_comment and current_comment.strip():
+            text_input_kwargs["value"] = current_comment
+
+        components = [TextInput(**text_input_kwargs)]
         super().__init__(
             title="Комментарий к отзыву",
             custom_id="modal:review_comment",
