@@ -32,7 +32,7 @@ from app.utils.mapper import Mapper
 
 logger = logging.getLogger(__name__)
 
-_INVITE_TIMEOUT = 5  # 60 минут
+_INVITE_TIMEOUT = 60 * 60  # 60 минут
 
 
 def _parse_footer(footer_text: str) -> tuple[UUID | None, str]:
