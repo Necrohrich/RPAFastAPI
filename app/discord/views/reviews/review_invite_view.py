@@ -5,7 +5,8 @@
 Footer формат: "session_id:{uuid}|game:{game_name}"
 
 Таймаут вьюшки (60 минут) управляется здесь.
-При истечении все CREATED-отзывы сессии переходят в CANCELED.
+При истечении все CREATED-отзывы сессии переходят в CANCELED,
+а само сообщение редактируется — кнопки убираются.
 
 ReviewFormView работает без таймаута — всё управление временем здесь.
 """
@@ -31,12 +32,10 @@ from app.utils.mapper import Mapper
 
 logger = logging.getLogger(__name__)
 
-# 60 минут — общий дедлайн для всей системы отзывов сессии
-_INVITE_TIMEOUT = 60 * 60
+_INVITE_TIMEOUT = 5  # 60 минут
 
 
 def _parse_footer(footer_text: str) -> tuple[UUID | None, str]:
-    """Извлекает session_id и game_name из footer embed."""
     try:
         parts = dict(p.split(":", 1) for p in footer_text.split("|"))
         session_id = UUID(parts["session_id"])
@@ -49,7 +48,6 @@ def _parse_footer(footer_text: str) -> tuple[UUID | None, str]:
 async def _get_session_id_and_attending(
     inter: disnake.MessageInteraction,
 ) -> tuple[UUID | None, list[int]]:
-    """Возвращает session_id и список attending discord_id из footer + discord_state."""
     session_id, _ = _parse_footer(
         inter.message.embeds[0].footer.text if inter.message.embeds else ""
     )
@@ -69,25 +67,11 @@ async def _check_user_allowed(
     inter: disnake.MessageInteraction,
     attending_discord_ids: list[int],
 ) -> tuple[UUID | None, bool]:
-    """
-    Проверяет, имеет ли пользователь право взаимодействовать с вьюшкой.
-
-    Возвращает (user_id, allowed).
-
-    Правила:
-    - Пользователь должен быть зарегистрирован в системе.
-    - Если attending_discord_ids непустой — discord_id пользователя должен
-      быть в этом списке (т.е. он присутствовал на сессии).
-    - Если attending пустой (сессия через сайт без AttendanceView) —
-      проверка присутствия пропускается, достаточно быть игроком.
-    """
     try:
         async with user_service_ctx() as u_svc:
             user_dto = await u_svc.get_user_by_discord(inter.author.id)
     except NotFoundError:
-        await inter.followup.send(
-            "❌ Вы не зарегистрированы в системе.", ephemeral=True
-        )
+        await inter.followup.send("❌ Вы не зарегистрированы в системе.", ephemeral=True)
         return None, False
 
     if attending_discord_ids:
@@ -109,37 +93,45 @@ async def _check_user_allowed(
 
 class ReviewInviteView(BaseView):
     """
-    Главная персистентная вьюшка отзывов.
+    Главная вьюшка приглашения к отзыву.
 
-    Таймаут: 60 минут. По истечении все незакрытые CREATED-отзывы сессии
-    переходят в CANCELED.
+    Таймаут: 60 минут. По истечении:
+    - Все CREATED-отзывы сессии переходят в CANCELED.
+    - Сообщение редактируется: кнопки убираются, embed заменяется финальным.
 
-    ReviewFormView создаётся без таймаута — время жизни формы полностью
-    определяется таймаутом этой вьюшки.
+    set_message() должен быть вызван сразу после отправки сообщения,
+    чтобы on_timeout мог его отредактировать.
     """
 
     def __init__(self, session_id: UUID | None = None) -> None:
-        # timeout=None → персистентная (для register_views); timeout задаётся
-        # при отправке в канал через конкретный экземпляр.
-        # Для register_views() нужен экземпляр без таймаута.
         super().__init__(timeout=None)
         self._session_id = session_id
+        self._message: disnake.Message | None = None
 
     @classmethod
     def with_timeout(cls, session_id: UUID) -> "ReviewInviteView":
-        """Фабричный метод для создания вьюшки с таймаутом при отправке в канал."""
         inst = cls(session_id=session_id)
         inst.timeout = _INVITE_TIMEOUT
         return inst
 
+    def set_message(self, message: disnake.Message) -> None:
+        """Сохраняет ссылку на сообщение для редактирования при таймауте."""
+        self._message = message
+
     async def on_timeout(self) -> None:
-        """При истечении таймаута отменяем все оставшиеся CREATED-отзывы."""
+        """
+        При истечении таймаута:
+        1. Отменяем все CREATED-отзывы сессии.
+        2. Редактируем сообщение — убираем кнопки, показываем финальный embed.
+        """
         if not self._session_id:
             return
+
         logger.info(
             "[ReviewInviteView] Timeout for session %s — canceling remaining CREATED reviews",
             self._session_id,
         )
+
         try:
             async with game_review_service_ctx() as svc:
                 from app.domain.enums.review_status_enum import ReviewStatusEnum
@@ -151,12 +143,25 @@ class ReviewInviteView(BaseView):
                 for review in reviews:
                     try:
                         await svc.cancel(review.id, review.user_id)
-                    except Exception as e:
+                    except Exception as exc:
                         logger.warning(
-                            "[ReviewInviteView] Could not cancel review %s: %s", review.id, e
+                            "[ReviewInviteView] Could not cancel review %s: %s", review.id, exc
                         )
-        except Exception as e:
-            logger.error("[ReviewInviteView] on_timeout error: %s", e)
+        except Exception as exc:
+            logger.error("[ReviewInviteView] on_timeout error while canceling: %s", exc)
+
+        if self._message:
+            try:
+                await self._message.edit(
+                    embed=disnake.Embed(
+                        title="⏰ Время опроса истекло",
+                        description="Окно для заполнения отзыва закрыто. Спасибо за участие!",
+                        color=disnake.Color.greyple(),
+                    ),
+                    view=None,
+                )
+            except disnake.HTTPException as exc:
+                logger.warning("[ReviewInviteView] Could not edit message on timeout: %s", exc)
 
     @button(
         label="✅ Оставить отзыв",
@@ -176,14 +181,12 @@ class ReviewInviteView(BaseView):
         if not allowed:
             return
 
-        # Получаем game_id из сессии
         async with game_review_service_ctx() as svc:
             session = await svc.session_repo.get_by_id(session_id)
             if not session:
                 await inter.followup.send("❌ Сессия не найдена.", ephemeral=True)
                 return
 
-        # Создаём отзыв или переиспользуем существующий CREATED
         try:
             async with game_review_service_ctx() as svc:
                 review = await svc.create(CreateGameReviewDTO(
@@ -197,27 +200,25 @@ class ReviewInviteView(BaseView):
                     session_id, user_id, include_deleted=False
                 )
             if not existing:
-                await inter.followup.send(
-                    "⚠️ Отзыв уже был отправлен или отменён.", ephemeral=True
-                )
+                await inter.followup.send("⚠️ Отзыв уже был отправлен или отменён.", ephemeral=True)
                 return
             from app.domain.enums.review_status_enum import ReviewStatusEnum
             if existing.status != ReviewStatusEnum.CREATED:
-                await inter.followup.send(
-                    "⚠️ Отзыв уже был отправлен или отменён.", ephemeral=True
-                )
+                await inter.followup.send("⚠️ Отзыв уже был отправлен или отменён.", ephemeral=True)
                 return
             review = Mapper.entity_to_dto(existing, GameReviewResponseDTO)
-        except GameReviewNotAllowedException as e:
-            await inter.followup.send(f"❌ {e}", ephemeral=True)
+        except GameReviewNotAllowedException as exc:
+            await inter.followup.send(f"❌ {exc}", ephemeral=True)
             return
 
-        # Собираем attending_players: (UUID, login) для выбора лучшего игрока
         attending_players: list[tuple[UUID, str]] = []
         for did in attending:
-            async with user_service_ctx() as u_svc:
-                u = await u_svc.get_user_by_discord(did)
-            attending_players.append((u.id, u.login))
+            try:
+                async with user_service_ctx() as u_svc:
+                    u = await u_svc.get_user_by_discord(did)
+                attending_players.append((u.id, u.login))
+            except NotFoundError:
+                pass
 
         form_view = ReviewFormView(
             review_id=review.id,

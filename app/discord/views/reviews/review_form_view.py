@@ -67,6 +67,14 @@ class ReviewFormView(BaseView):
             review = await svc.get_by_id(self._review_id)
         return build_review_form_embed(review, attending_players=attending_players), review
 
+    async def _refresh(self, inter: disnake.MessageInteraction) -> None:
+        """Перерисовывает embed с актуальным состоянием отзыва."""
+        embed, _ = await self._get_review_embed(self._attending_players)
+        try:
+            await inter.edit_original_response(embed=embed, view=self)
+        except disnake.HTTPException as e:
+            logger.warning("[ReviewFormView] _refresh failed: %s", e)
+
     async def _update_field_and_edit(
         self,
         inter: disnake.MessageInteraction,
@@ -253,6 +261,13 @@ class ReviewFormView(BaseView):
             skippable=True,
         )
         await inter.followup.send("Выберите лучшего игрока:", view=view, ephemeral=True)
+
+    # ── Обновить ──────────────────────────────────────────────────────────────
+
+    @button(label="🔄 Обновить", style=disnake.ButtonStyle.secondary, custom_id="review_form:refresh", row=2)
+    async def btn_refresh(self, _: Button, inter: disnake.MessageInteraction) -> None:
+        await inter.response.defer(ephemeral=True)
+        await self._refresh(inter)
 
     # ── Отменить ──────────────────────────────────────────────────────────────
 

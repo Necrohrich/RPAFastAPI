@@ -19,16 +19,21 @@ def build_review_publish_embed(
     session_number: int,
     game_name: str,
     author_discord_id: int | None = None,
+    best_player_login: str | None = None,
 ) -> disnake.Embed:
     """
     Embed для публикации отзыва в канал.
 
     Для анонимных отзывов автор не указывается.
+    best_player_login — логин лучшего игрока (если известен), иначе mention по UUID.
     """
     is_anonymous = review.anonymity == ReviewAnonymityEnum.PRIVATE
 
     title = f"📝 Отзыв на сессию #{session_number} — {game_name}"
     embed = disnake.Embed(title=title, color=disnake.Color.blurple())
+
+    # footer с UUID отзыва — полезен для slash-команд управления
+    embed.set_footer(text=f"review_id: {review.id}")
 
     # Автор
     if is_anonymous or not author_discord_id:
@@ -59,13 +64,13 @@ def build_review_publish_embed(
             inline=False,
         )
 
-    # Лучший игрок
+    # Лучший игрок — предпочитаем логин, fallback на mention/UUID
     if review.best_player_id:
-        embed.add_field(
-            name="🏆 Игрок сессии",
-            value=f"<@{review.best_player_id}>",
-            inline=False,
-        )
+        if best_player_login:
+            player_text = f"**{best_player_login}**"
+        else:
+            player_text = f"<@{review.best_player_id}>"
+        embed.add_field(name="🏆 Игрок сессии", value=player_text, inline=False)
 
     return embed
 
@@ -76,8 +81,9 @@ def build_review_publish_stats_header(
     total: int,
 ) -> disnake.Embed:
     """Заголовочный embed перед пачкой опубликованных отзывов."""
+    session_label = f"сессию #{session_number}" if session_number else "все сессии"
     return disnake.Embed(
-        title=f"📊 Отзывы на сессию #{session_number} — {game_name}",
+        title=f"📊 Отзывы на {session_label} — {game_name}",
         description=f"Всего отзывов: **{total}**",
         color=disnake.Color.green(),
     )

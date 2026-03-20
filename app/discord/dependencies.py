@@ -53,7 +53,8 @@ async def game_session_service_ctx():
     async with UnitOfWork() as uow:
         game_session_repo = GameSessionRepository(uow.session)
         game_repo = GameRepository(uow.session)
-        yield GameSessionService(game_session_repo, game_repo)
+        review_repo = GameReviewRepository(uow.session)
+        yield GameSessionService(game_session_repo, game_repo, review_repo=review_repo)
 
 @asynccontextmanager
 async def game_review_service_ctx():
