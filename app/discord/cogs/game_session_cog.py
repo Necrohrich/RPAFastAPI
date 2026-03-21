@@ -668,17 +668,18 @@ class GameSessionCog(commands.Cog):
     async def session_info(
             self,
             inter: disnake.ApplicationCommandInteraction,
+            author: User = commands.Param(description="Автор игры"),
     ) -> None:
         await inter.response.defer(ephemeral=True)
 
         async with user_service_ctx() as user_service:
-            user = await user_service.get_user_by_discord(inter.author.id)
+            user = await user_service.get_user_by_discord(author.id)
 
         async with game_service_ctx() as gs:
             games = await gs.get_list_by_author_id(user.id)
 
         if not games:
-            await inter.followup.send("❌ У вас нет игр.", ephemeral=True)
+            await inter.followup.send("❌ У пользователя нет игр.", ephemeral=True)
             return
 
         async def on_game_selected(
