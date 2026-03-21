@@ -14,7 +14,7 @@ def build_my_games_embed(result: PaginatedResponseDTO[GameResponseDTO], page: in
             if game.gm_id:
                 value_lines.append(f"👤 GM: <@{game.gm_id}>\n\u200b")
             if game.discord_role_id:
-                value_lines.append(f"🎭 Роль: <@&{game.discord_role_id}>\n\u200b")
+                value_lines.append(f"🎭 Роль ID: `{game.discord_role_id}`\n\u200b")
             if game.discord_main_channel_id:
                 value_lines.append(f"📢 Канал: <#{game.discord_main_channel_id}>\n\u200b")
 
